@@ -42,6 +42,11 @@
         .btn-outline { background: transparent; border: 2px solid var(--primary); color: var(--primary); }
         .btn:hover { opacity: 0.9; transform: translateY(-1px); }
         .table-container { background: var(--bg-card); border-radius: 0.75rem; overflow: auto; box-shadow: var(--shadow); max-height: 600px; }
+        .pagination { display: flex; justify-content: center; align-items: center; gap: 0.5rem; margin-top: 1rem; }
+        .pagination button { padding: 0.5rem 1rem; border: 1px solid var(--border); background: var(--bg-card); border-radius: 0.25rem; cursor: pointer; }
+        .pagination button:hover:not(:disabled) { background: var(--primary); color: white; }
+        .pagination button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .pagination span { padding: 0.5rem 1rem; }
         .table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
         .table thead { background: var(--bg-primary); position: sticky; top: 0; z-index: 10; }
         .table th { padding: 0.75rem; text-align: left; font-weight: 600; text-transform: uppercase; font-size: 0.75rem; color: var(--text-secondary); border-bottom: 2px solid var(--border); }
@@ -180,7 +185,7 @@
                             </button>
                         </div>
                         <div class="form-group">
-                            <input type="text" class="form-control" placeholder="Buscar por variante o ubicación..." id="buscarInventario" oninput="filtrarInventario()">
+                            <input type="text" class="form-control" placeholder="Buscar por variante o ubicación..." id="buscarInventario" oninput="debounceSearch()">
                         </div>
                         <div class="table-container">
                             <table class="table">
@@ -197,6 +202,7 @@
                                 <tbody id="inventarioTableBody"></tbody>
                             </table>
                         </div>
+                        <div class="pagination" id="inventarioPagination"></div>
                     </div>
                 </div>
 
@@ -230,6 +236,7 @@
                                 <tbody id="productosSystemTableBody"></tbody>
                             </table>
                         </div>
+                        <div class="pagination" id="productosSystemPagination"></div>
                     </div>
                 </div>
 
@@ -244,7 +251,8 @@
                                 <thead>
                                     <tr>
                                         <th>ID Orden</th>
-                                        <th>Fecha Creación</th>
+                                        <th>Nombre</th>
+                                        <th>Fecha y Hora Creación</th>
                                         <th>Total Unidades</th>
                                         <th>Estado</th>
                                         <th>Progreso</th>
@@ -363,6 +371,10 @@
             <div class="modal-header">
                 <h3 class="modal-title">Crear Nueva Orden</h3>
                 <button onclick="cerrarModal('modalCrearOrden')" style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">×</button>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Nombre de la Orden *</label>
+                <input type="text" class="form-control" id="nombreOrden" placeholder="Ej: Pedido Tiendas Norte - Enero 2025" required>
             </div>
             <div class="alert alert-info">
                 <strong>Formato requerido:</strong> Excel con columnas:<br>
@@ -502,6 +514,12 @@
         let itemsReclasificacion = [];
         let cargaMasivaEnProceso = false;
 
+        // Variables de paginación
+        let paginaInventario = 1;
+        let paginaProductosSystem = 1;
+        const ITEMS_POR_PAGINA = 100;
+        let searchTimeout = null;
+
         // ==========================================
         // GOOGLE API
         // ==========================================
@@ -573,6 +591,11 @@
             document.getElementById('appContainer').classList.remove('hidden');
             generarMenu();
             await cargarDatos();
+            
+            // Resetear páginas
+            paginaInventario = 1;
+            paginaProductosSystem = 1;
+            
             actualizarDashboard();
             renderizarInventario();
             renderizarProductosSystem();
@@ -639,6 +662,11 @@
             mostrarToast('Sincronizando con Google Sheets...', 'info');
             await guardarDatos();
             await cargarDatos();
+            
+            // Resetear páginas
+            paginaInventario = 1;
+            paginaProductosSystem = 1;
+            
             actualizarDashboard();
             renderizarInventario();
             renderizarProductosSystem();
@@ -728,19 +756,20 @@
                 try {
                     ordenes.push({
                         id: row[0] || '',
-                        fecha: new Date(row[1]),
-                        estado: row[2] || '',
-                        totalUnidades: parseInt(row[3]) || 0,
-                        items: JSON.parse(row[4] || '[]'),
-                        hojaRutaPicking: JSON.parse(row[5] || '[]'),
-                        hojaPacking: JSON.parse(row[6] || '[]'),
-                        cantidadesEncontradas: JSON.parse(row[7] || 'null'),
-                        unidadesEncontradas: parseInt(row[8]) || 0,
-                        unidadesFaltantes: parseInt(row[9]) || 0,
-                        distribucionAjustada: row[10] === 'true',
-                        observaciones: JSON.parse(row[11] || 'null'),
-                        prendasRechazadas: parseInt(row[12]) || 0,
-                        fechaCierre: row[13] ? new Date(row[13]) : null
+                        nombre: row[1] || '',
+                        fecha: new Date(row[2]),
+                        estado: row[3] || '',
+                        totalUnidades: parseInt(row[4]) || 0,
+                        items: JSON.parse(row[5] || '[]'),
+                        hojaRutaPicking: JSON.parse(row[6] || '[]'),
+                        hojaPacking: JSON.parse(row[7] || '[]'),
+                        cantidadesEncontradas: JSON.parse(row[8] || 'null'),
+                        unidadesEncontradas: parseInt(row[9]) || 0,
+                        unidadesFaltantes: parseInt(row[10]) || 0,
+                        distribucionAjustada: row[11] === 'true',
+                        observaciones: JSON.parse(row[12] || 'null'),
+                        prendasRechazadas: parseInt(row[13]) || 0,
+                        fechaCierre: row[14] ? new Date(row[14]) : null
                     });
                 } catch (e) {
                     console.error('Error al parsear orden:', e);
@@ -750,11 +779,11 @@
 
         async function guardarOrdenesSheets() {
             const valores = [
-                ['id', 'fecha', 'estado', 'totalUnidades', 'items', 'hojaRutaPicking', 'hojaPacking', 
+                ['id', 'nombre', 'fecha', 'estado', 'totalUnidades', 'items', 'hojaRutaPicking', 'hojaPacking', 
                  'cantidadesEncontradas', 'unidadesEncontradas', 'unidadesFaltantes', 
                  'distribucionAjustada', 'observaciones', 'prendasRechazadas', 'fechaCierre'],
                 ...ordenes.map(o => [
-                    o.id, o.fecha.toISOString(), o.estado, o.totalUnidades,
+                    o.id, o.nombre || '', o.fecha.toISOString(), o.estado, o.totalUnidades,
                     JSON.stringify(o.items || []), JSON.stringify(o.hojaRutaPicking || []),
                     JSON.stringify(o.hojaPacking || []), JSON.stringify(o.cantidadesEncontradas || null),
                     o.unidadesEncontradas || 0, o.unidadesFaltantes || 0,
@@ -1009,7 +1038,14 @@
                 item.ubicacion.toLowerCase().includes(busqueda)
             );
 
-            document.getElementById('inventarioTableBody').innerHTML = filtrado.map(item => `
+            // Paginación
+            const totalPaginas = Math.ceil(filtrado.length / ITEMS_POR_PAGINA);
+            const inicio = (paginaInventario - 1) * ITEMS_POR_PAGINA;
+            const fin = inicio + ITEMS_POR_PAGINA;
+            const itemsPagina = filtrado.slice(inicio, fin);
+
+            // Renderizar solo la página actual
+            document.getElementById('inventarioTableBody').innerHTML = itemsPagina.map(item => `
                 <tr>
                     <td><strong>${item.variante}</strong></td>
                     <td>${item.ubicacion}</td>
@@ -1022,9 +1058,51 @@
                     </td>
                 </tr>
             `).join('');
+
+            // Controles de paginación
+            renderizarPaginacion('inventario', totalPaginas, filtrado.length);
+        }
+
+        function renderizarPaginacion(tipo, totalPaginas, totalItems) {
+            const paginaActual = tipo === 'inventario' ? paginaInventario : paginaProductosSystem;
+            const containerId = tipo === 'inventario' ? 'inventarioPagination' : 'productosSystemPagination';
+            
+            if (totalPaginas <= 1) {
+                document.getElementById(containerId).innerHTML = `<span>Total: ${totalItems} items</span>`;
+                return;
+            }
+
+            document.getElementById(containerId).innerHTML = `
+                <button onclick="cambiarPagina('${tipo}', ${paginaActual - 1})" ${paginaActual === 1 ? 'disabled' : ''}>
+                    ← Anterior
+                </button>
+                <span>Página ${paginaActual} de ${totalPaginas} (Total: ${totalItems})</span>
+                <button onclick="cambiarPagina('${tipo}', ${paginaActual + 1})" ${paginaActual === totalPaginas ? 'disabled' : ''}>
+                    Siguiente →
+                </button>
+            `;
+        }
+
+        function cambiarPagina(tipo, nuevaPagina) {
+            if (tipo === 'inventario') {
+                paginaInventario = nuevaPagina;
+                renderizarInventario();
+            } else if (tipo === 'productosSystem') {
+                paginaProductosSystem = nuevaPagina;
+                renderizarProductosSystem();
+            }
+        }
+
+        function debounceSearch() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                paginaInventario = 1;
+                renderizarInventario();
+            }, 300);
         }
 
         function filtrarInventario() {
+            paginaInventario = 1;
             renderizarInventario();
         }
 
@@ -1108,7 +1186,13 @@
         }
 
         function renderizarProductosSystem() {
-            document.getElementById('productosSystemTableBody').innerHTML = productosSystem.map(prod => {
+            // Paginación
+            const totalPaginas = Math.ceil(productosSystem.length / ITEMS_POR_PAGINA);
+            const inicio = (paginaProductosSystem - 1) * ITEMS_POR_PAGINA;
+            const fin = inicio + ITEMS_POR_PAGINA;
+            const itemsPagina = productosSystem.slice(inicio, fin);
+
+            document.getElementById('productosSystemTableBody').innerHTML = itemsPagina.map(prod => {
                 const stockFisico = inventario
                     .filter(i => i.variante === prod.variante)
                     .reduce((sum, i) => sum + i.stockFisico, 0);
@@ -1131,6 +1215,9 @@
                     </tr>
                 `;
             }).join('');
+
+            // Controles de paginación
+            renderizarPaginacion('productosSystem', totalPaginas, productosSystem.length);
         }
 
         function verificarDiscrepancias() {
@@ -1299,10 +1386,20 @@
                                    orden.estado === 'Pendiente Packing' ? 'yellow' :
                                    orden.estado === 'En Picking' ? 'blue' : 'red';
 
+                const fechaHora = orden.fecha.toLocaleString('es-PE', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: true
+                });
+
                 return `
                     <tr>
                         <td><strong>${orden.id}</strong></td>
-                        <td>${orden.fecha.toLocaleDateString()}</td>
+                        <td><strong style="color: var(--primary);">${orden.nombre || 'Sin nombre'}</strong></td>
+                        <td>${fechaHora}</td>
                         <td>${orden.totalUnidades}</td>
                         <td><span class="badge badge-${colorEstado}">${orden.estado}</span></td>
                         <td>
@@ -1350,20 +1447,34 @@
             
             document.getElementById('pickingOrdenesContainer').innerHTML = ordenesPicking.length === 0 ? 
                 '<p style="color: var(--text-secondary);">No hay órdenes pendientes de picking</p>' :
-                ordenesPicking.map(orden => `
-                    <div class="orden-card">
-                        <div class="orden-header">
-                            <h4>${orden.id}</h4>
-                            <span class="badge badge-blue">${orden.estado}</span>
+                ordenesPicking.map(orden => {
+                    const fechaHora = orden.fecha.toLocaleString('es-PE', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: true
+                    });
+
+                    return `
+                        <div class="orden-card">
+                            <div class="orden-header">
+                                <div>
+                                    <h4>${orden.nombre || orden.id}</h4>
+                                    <p style="font-size: 0.875rem; color: var(--text-secondary); margin-top: 0.25rem;">ID: ${orden.id}</p>
+                                </div>
+                                <span class="badge badge-blue">${orden.estado}</span>
+                            </div>
+                            <p>Total Unidades: <strong>${orden.totalUnidades}</strong></p>
+                            <p>Fecha y Hora: ${fechaHora}</p>
+                            <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
+                                <button class="btn btn-primary" onclick="descargarHojaPicking('${orden.id}')">Descargar Hoja Ruta</button>
+                                <button class="btn btn-success" onclick="abrirModalConfirmarCantidades('${orden.id}')">Confirmar Cantidades</button>
+                            </div>
                         </div>
-                        <p>Total Unidades: <strong>${orden.totalUnidades}</strong></p>
-                        <p>Fecha: ${orden.fecha.toLocaleDateString()}</p>
-                        <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
-                            <button class="btn btn-primary" onclick="descargarHojaPicking('${orden.id}')">Descargar Hoja Ruta</button>
-                            <button class="btn btn-success" onclick="abrirModalConfirmarCantidades('${orden.id}')">Confirmar Cantidades</button>
-                        </div>
-                    </div>
-                `).join('');
+                    `;
+                }).join('');
         }
 
         function abrirModalConfirmarCantidades(ordenId) {
@@ -1491,21 +1602,36 @@
             
             document.getElementById('packingOrdenesContainer').innerHTML = ordenesPacking.length === 0 ? 
                 '<p style="color: var(--text-secondary);">No hay órdenes pendientes de packing</p>' :
-                ordenesPacking.map(orden => `
-                    <div class="orden-card">
-                        <div class="orden-header">
-                            <h4>${orden.id}</h4>
-                            <span class="badge badge-yellow">Pendiente Packing</span>
+                ordenesPacking.map(orden => {
+                    const fechaHora = orden.fecha.toLocaleString('es-PE', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: true
+                    });
+
+                    return `
+                        <div class="orden-card">
+                            <div class="orden-header">
+                                <div>
+                                    <h4>${orden.nombre || orden.id}</h4>
+                                    <p style="font-size: 0.875rem; color: var(--text-secondary); margin-top: 0.25rem;">ID: ${orden.id}</p>
+                                </div>
+                                <span class="badge badge-yellow">Pendiente Packing</span>
+                            </div>
+                            <p>Unidades Encontradas: <strong>${orden.unidadesEncontradas}</strong></p>
+                            <p>Unidades Faltantes: <strong style="color: var(--danger);">${orden.unidadesFaltantes}</strong></p>
+                            <p>Fecha y Hora: ${fechaHora}</p>
+                            <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
+                                <button class="btn btn-outline" onclick="descargarHojaPacking('${orden.id}')">Descargar Hoja Packing</button>
+                                <button class="btn btn-warning" onclick="abrirModalObservaciones('${orden.id}')">Reportar Observaciones</button>
+                                <button class="btn btn-success" onclick="cerrarOrden('${orden.id}')">Cerrar Orden</button>
+                            </div>
                         </div>
-                        <p>Unidades Encontradas: <strong>${orden.unidadesEncontradas}</strong></p>
-                        <p>Unidades Faltantes: <strong style="color: var(--danger);">${orden.unidadesFaltantes}</strong></p>
-                        <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
-                            <button class="btn btn-outline" onclick="descargarHojaPacking('${orden.id}')">Descargar Hoja Packing</button>
-                            <button class="btn btn-warning" onclick="abrirModalObservaciones('${orden.id}')">Reportar Observaciones</button>
-                            <button class="btn btn-success" onclick="cerrarOrden('${orden.id}')">Cerrar Orden</button>
-                        </div>
-                    </div>
-                `).join('');
+                    `;
+                }).join('');
         }
 
         function abrirModalObservaciones(ordenId) {
