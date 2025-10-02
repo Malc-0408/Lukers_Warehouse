@@ -90,6 +90,8 @@
         .login-box { background: white; padding: 3rem; border-radius: 1rem; text-align: center; max-width: 400px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); }
         .orden-card { border: 1px solid var(--border); border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem; }
         .orden-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
+        .icon-btn { display: inline-flex; align-items: center; justify-content: center; padding: 0.5rem; border-radius: 0.375rem; border: none; cursor: pointer; transition: all 0.2s; }
+        .icon-btn:hover { opacity: 0.8; transform: translateY(-1px); }
     </style>
 </head>
 <body>
@@ -150,19 +152,12 @@
                             <div class="stat-label">Órdenes Activas</div>
                         </div>
                     </div>
-
                     <div class="card">
                         <h3 class="card-title">Acceso Rápido</h3>
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
-                            <button class="btn btn-primary" onclick="cambiarVista('inventario')" style="padding: 1.5rem; justify-content: center;">
-                                Gestionar Inventario
-                            </button>
-                            <button class="btn btn-success" onclick="cambiarVista('ordenes')" style="padding: 1.5rem; justify-content: center;">
-                                Crear Orden
-                            </button>
-                            <button class="btn btn-outline" onclick="cambiarVista('productos-system')" style="padding: 1.5rem; justify-content: center;">
-                                Productos System
-                            </button>
+                            <button class="btn btn-primary" onclick="cambiarVista('inventario')" style="padding: 1.5rem; justify-content: center;">Gestionar Inventario</button>
+                            <button class="btn btn-success" onclick="cambiarVista('ordenes')" style="padding: 1.5rem; justify-content: center;">Crear Orden</button>
+                            <button class="btn btn-outline" onclick="cambiarVista('productos-system')" style="padding: 1.5rem; justify-content: center;">Productos System</button>
                         </div>
                     </div>
                 </div>
@@ -171,18 +166,10 @@
                     <div class="card">
                         <h3 class="card-title">Gestión de Inventario</h3>
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
-                            <button class="btn btn-primary" onclick="mostrarModal('modalSubidaMasiva')">
-                                Subir Inventario Masivo (Excel)
-                            </button>
-                            <button class="btn btn-success" onclick="mostrarModal('modalAgregarIndividual')">
-                                Agregar Producto Individual
-                            </button>
-                            <button class="btn btn-outline" onclick="exportarInventario()">
-                                Exportar Inventario
-                            </button>
-                            <button class="btn btn-warning" onclick="mostrarModal('modalModificarMasivo')">
-                                Modificar/Eliminar Masivo
-                            </button>
+                            <button class="btn btn-primary" onclick="mostrarModal('modalSubidaMasiva')">Subir Inventario Masivo (Excel)</button>
+                            <button class="btn btn-success" onclick="mostrarModal('modalAgregarIndividual')">Agregar Producto Individual</button>
+                            <button class="btn btn-outline" onclick="exportarInventario()">Exportar Inventario</button>
+                            <button class="btn btn-warning" onclick="mostrarModal('modalModificarMasivo')">Modificar/Eliminar Masivo</button>
                         </div>
                         <div class="form-group">
                             <input type="text" class="form-control" placeholder="Buscar por variante o ubicación..." id="buscarInventario" oninput="debounceSearch()">
@@ -210,12 +197,8 @@
                     <div class="card">
                         <h3 class="card-title">Productos System (Base de Datos)</h3>
                         <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem;">
-                            <button class="btn btn-primary" onclick="mostrarModal('modalProductosSystem')">
-                                Subir Productos System (Excel)
-                            </button>
-                            <button class="btn btn-outline" onclick="verificarDiscrepancias()">
-                                Verificar Discrepancias
-                            </button>
+                            <button class="btn btn-primary" onclick="mostrarModal('modalProductosSystem')">Subir Productos System (Excel)</button>
+                            <button class="btn btn-outline" onclick="verificarDiscrepancias()">Verificar Discrepancias</button>
                         </div>
                         <div class="form-group">
                             <input type="text" class="form-control" placeholder="Buscar en Productos System..." id="buscarProductosSystem" oninput="debounceSearchProductos()">
@@ -246,9 +229,7 @@
                 <div class="view-section" id="view-ordenes">
                     <div class="card">
                         <h3 class="card-title">Gestión de Órdenes</h3>
-                        <button class="btn btn-primary" onclick="mostrarModal('modalCrearOrden')" style="margin-bottom: 1.5rem;">
-                            Crear Nueva Orden (Excel)
-                        </button>
+                        <button class="btn btn-primary" onclick="mostrarModal('modalCrearOrden')" style="margin-bottom: 1.5rem;">Crear Nueva Orden (Excel)</button>
                         <div class="table-container">
                             <table class="table">
                                 <thead>
@@ -314,9 +295,7 @@
                 <h3 class="modal-title">Subir Inventario Masivo</h3>
                 <button onclick="cerrarModal('modalSubidaMasiva')" style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">×</button>
             </div>
-            <div class="alert alert-info">
-                <strong>Formato requerido:</strong> Excel con columnas: <strong>Variante, Ubicación, Stock Físico</strong>
-            </div>
+            <div class="alert alert-info"><strong>Formato requerido:</strong> Excel con columnas: <strong>Variante, Ubicación, Stock Físico</strong></div>
             <div class="file-drop-zone" onclick="document.getElementById('fileInputMasivo').click()">
                 <p style="font-size: 1.125rem; font-weight: 600; margin-bottom: 0.5rem;">Arrastra tu archivo aquí</p>
                 <p style="color: var(--text-secondary);">o haz clic para seleccionar</p>
@@ -331,10 +310,7 @@
                 <h3 class="modal-title">Modificar/Eliminar Masivo</h3>
                 <button onclick="cerrarModal('modalModificarMasivo')" style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">×</button>
             </div>
-            <div class="alert alert-warning">
-                <strong>Formato:</strong> Excel con <strong>Variante, Ubicación, Stock Físico</strong><br>
-                Si Stock = 0, el producto se eliminará. Si Stock > 0, se actualizará.
-            </div>
+            <div class="alert alert-warning"><strong>Formato:</strong> Excel con <strong>Variante, Ubicación, Stock Físico</strong><br>Si Stock = 0, el producto se eliminará. Si Stock > 0, se actualizará.</div>
             <div class="file-drop-zone" onclick="document.getElementById('fileInputModificar').click()">
                 <p style="font-size: 1.125rem; font-weight: 600; margin-bottom: 0.5rem;">Subir Archivo</p>
                 <input type="file" id="fileInputModificar" accept=".xlsx,.xls" style="display: none;" onchange="procesarModificarMasivo(event)">
@@ -396,9 +372,7 @@
                 <h3 class="modal-title">Subir Productos System</h3>
                 <button onclick="cerrarModal('modalProductosSystem')" style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">×</button>
             </div>
-            <div class="alert alert-info">
-                <strong>Columnas requeridas:</strong> VARIANTE, CODIGO COMERCIAL, DESCRIPCIÓN, Kardex, PVP, Stk Fin, Genero, Mundo, Linea, MARCA, COLOR, TALLA, TEMPORADA_MUNDO
-            </div>
+            <div class="alert alert-info"><strong>Columnas requeridas:</strong> VARIANTE, CODIGO COMERCIAL, DESCRIPCIÓN, Kardex, PVP, Stk Fin, Genero, Mundo, Linea, MARCA, COLOR, TALLA, TEMPORADA_MUNDO</div>
             <div class="file-drop-zone" onclick="document.getElementById('fileInputProductosSystem').click()">
                 <p style="font-size: 1.125rem; font-weight: 600; margin-bottom: 0.5rem;">Subir Archivo</p>
                 <input type="file" id="fileInputProductosSystem" accept=".xlsx,.xls" style="display: none;" onchange="procesarProductosSystem(event)">
@@ -412,9 +386,7 @@
                 <h3 class="modal-title">Confirmar Cantidades Encontradas</h3>
                 <button onclick="cerrarModal('modalConfirmarCantidades')" style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">×</button>
             </div>
-            <div class="alert alert-info">
-                <strong>Formato:</strong> Excel con <strong>Variante, Ubicación, Cantidad Encontrada</strong>
-            </div>
+            <div class="alert alert-info"><strong>Formato:</strong> Excel con <strong>Variante, Ubicación, Cantidad Encontrada</strong></div>
             <input type="hidden" id="ordenIdConfirmar">
             <div class="file-drop-zone" onclick="document.getElementById('fileInputCantidades').click()">
                 <p style="font-size: 1.125rem; font-weight: 600; margin-bottom: 0.5rem;">Subir Cantidades Encontradas</p>
@@ -538,23 +510,16 @@
         let gisInited = false;
         let tokenClient;
         let accessToken = null;
-
         let inventario = [];
         let productosSystem = [];
         let ordenes = [];
         let itemsReclasificacion = [];
         let cargaMasivaEnProceso = false;
-
-        // Variables de paginación
         let paginaInventario = 1;
         let paginaProductosSystem = 1;
         const ITEMS_POR_PAGINA = 100;
         let searchTimeout = null;
         let searchProductosTimeout = null;
-
-        // ==========================================
-        // GOOGLE API
-        // ==========================================
 
         function gapiLoaded() {
             gapi.load('client', initializeGapiClient);
@@ -623,11 +588,8 @@
             document.getElementById('appContainer').classList.remove('hidden');
             generarMenu();
             await cargarDatos();
-            
-            // Resetear páginas
             paginaInventario = 1;
             paginaProductosSystem = 1;
-            
             actualizarDashboard();
             renderizarInventario();
             renderizarProductosSystem();
@@ -694,11 +656,8 @@
             mostrarToast('Sincronizando con Google Sheets...', 'info');
             await guardarDatos();
             await cargarDatos();
-            
-            // Resetear páginas
             paginaInventario = 1;
             paginaProductosSystem = 1;
-            
             actualizarDashboard();
             renderizarInventario();
             renderizarProductosSystem();
@@ -782,14 +741,11 @@
         async function cargarOrdenesSheets() {
             const rows = await leerHoja('ordenes');
             if (rows.length === 0) return;
-            
             ordenes = [];
-            console.log('Filas de órdenes cargadas:', rows.length); // Debug
-            
             for (let i = 1; i < rows.length; i++) {
                 const row = rows[i];
                 try {
-                    const ordenObj = {
+                    ordenes.push({
                         id: row[0] || '',
                         nombre: row[1] || '',
                         fecha: new Date(row[2]),
@@ -805,16 +761,11 @@
                         observaciones: JSON.parse(row[12] || 'null'),
                         prendasRechazadas: parseInt(row[13]) || 0,
                         fechaCierre: row[14] ? new Date(row[14]) : null
-                    };
-                    
-                    console.log(`Orden ${i} cargada:`, ordenObj.id, 'Nombre:', ordenObj.nombre); // Debug
-                    ordenes.push(ordenObj);
+                    });
                 } catch (e) {
                     console.error('Error al parsear orden:', e);
                 }
             }
-            
-            console.log('Total órdenes cargadas:', ordenes.length); // Debug
         }
 
         async function guardarOrdenesSheets() {
@@ -823,25 +774,14 @@
                  'cantidadesEncontradas', 'unidadesEncontradas', 'unidadesFaltantes', 
                  'distribucionAjustada', 'observaciones', 'prendasRechazadas', 'fechaCierre'],
                 ...ordenes.map(o => [
-                    o.id, 
-                    o.nombre || '', 
-                    o.fecha.toISOString(), 
-                    o.estado, 
-                    o.totalUnidades,
-                    JSON.stringify(o.items || []), 
-                    JSON.stringify(o.hojaRutaPicking || []),
-                    JSON.stringify(o.hojaPacking || []), 
-                    JSON.stringify(o.cantidadesEncontradas || null),
-                    o.unidadesEncontradas || 0, 
-                    o.unidadesFaltantes || 0,
-                    o.distribucionAjustada || false, 
-                    JSON.stringify(o.observaciones || null),
-                    o.prendasRechazadas || 0, 
-                    o.fechaCierre ? o.fechaCierre.toISOString() : ''
+                    o.id, o.nombre || '', o.fecha.toISOString(), o.estado, o.totalUnidades,
+                    JSON.stringify(o.items || []), JSON.stringify(o.hojaRutaPicking || []),
+                    JSON.stringify(o.hojaPacking || []), JSON.stringify(o.cantidadesEncontradas || null),
+                    o.unidadesEncontradas || 0, o.unidadesFaltantes || 0,
+                    o.distribucionAjustada || false, JSON.stringify(o.observaciones || null),
+                    o.prendasRechazadas || 0, o.fechaCierre ? o.fechaCierre.toISOString() : ''
                 ])
             ];
-            
-            console.log('Guardando órdenes en Sheets:', valores); // Debug
             await escribirHoja('ordenes', valores);
         }
 
@@ -925,9 +865,119 @@
             document.getElementById('statOrdenes').textContent = ordenes.filter(o => o.estado !== 'Completada').length;
         }
 
-        // ==========================================
-        // INVENTARIO
-        // ==========================================
+        // INVENTARIO CON ICONOS SVG
+        function renderizarInventario() {
+            const busqueda = document.getElementById('buscarInventario')?.value.toLowerCase() || '';
+            const filtrado = inventario.filter(item => 
+                item.variante.toLowerCase().includes(busqueda) ||
+                item.ubicacion.toLowerCase().includes(busqueda)
+            );
+
+            const totalPaginas = Math.ceil(filtrado.length / ITEMS_POR_PAGINA);
+            const inicio = (paginaInventario - 1) * ITEMS_POR_PAGINA;
+            const fin = inicio + ITEMS_POR_PAGINA;
+            const itemsPagina = filtrado.slice(inicio, fin);
+
+            document.getElementById('inventarioTableBody').innerHTML = itemsPagina.map(item => `
+                <tr>
+                    <td><strong>${item.variante}</strong></td>
+                    <td>${item.ubicacion}</td>
+                    <td>${item.stockFisico}</td>
+                    <td style="color: var(--warning);">${item.stockBloqueado}</td>
+                    <td style="color: var(--success);"><strong>${item.stockFisico - item.stockBloqueado}</strong></td>
+                    <td style="white-space: nowrap;">
+                        <button class="icon-btn" style="background: #10b981; color: white;" onclick="editarInventario('${item.variante}', '${item.ubicacion}')" title="Editar">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                            </svg>
+                        </button>
+                        <button class="icon-btn" style="background: #3b82f6; color: white;" onclick="visualizarProducto('${item.variante}')" title="Ver información">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                <circle cx="12" cy="12" r="3"></circle>
+                            </svg>
+                        </button>
+                        <button class="icon-btn" style="background: #ef4444; color: white;" onclick="eliminarInventario('${item.variante}', '${item.ubicacion}')" title="Eliminar">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="3 6 5 6 21 6"></polyline>
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                            </svg>
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+
+            renderizarPaginacion('inventario', totalPaginas, filtrado.length);
+        }
+
+        function visualizarProducto(variante) {
+            const producto = productosSystem.find(p => p.variante === variante);
+            if (!producto) {
+                mostrarToast('Esta variante no está en Productos System', 'warning');
+                return;
+            }
+
+            const stockFisico = inventario.filter(i => i.variante === variante).reduce((sum, i) => sum + i.stockFisico, 0);
+            const ubicaciones = inventario.filter(i => i.variante === variante).map(i => `${i.ubicacion} (${i.stockFisico} unidades)`).join(', ');
+
+            document.getElementById('infoProductoCompleta').innerHTML = `
+                <div style="display: grid; gap: 1rem;">
+                    <div><strong>Variante:</strong> ${producto.variante}</div>
+                    <div><strong>Código Comercial:</strong> ${producto.codigoComercial}</div>
+                    <div><strong>Descripción:</strong> ${producto.descripcion}</div>
+                    <div><strong>Marca:</strong> ${producto.marca}</div>
+                    <div><strong>Talla:</strong> ${producto.talla}</div>
+                    <div><strong>Color:</strong> ${producto.color}</div>
+                    <div><strong>Género:</strong> ${producto.genero}</div>
+                    <div><strong>Temporada:</strong> ${producto.temporada}</div>
+                    <div><strong>PVP:</strong> S/ ${producto.pvp.toFixed(2)}</div>
+                    <div><strong>Stock Sistema (Stk Fin):</strong> ${producto.stkFin}</div>
+                    <div><strong>Stock Físico:</strong> ${stockFisico}</div>
+                    <div><strong>Ubicaciones:</strong> ${ubicaciones || 'Sin ubicaciones'}</div>
+                </div>
+            `;
+            mostrarModal('modalVisualizarProducto');
+        }
+
+        function renderizarPaginacion(tipo, totalPaginas, totalItems) {
+            const paginaActual = tipo === 'inventario' ? paginaInventario : paginaProductosSystem;
+            const containerId = tipo === 'inventario' ? 'inventarioPagination' : 'productosSystemPagination';
+            
+            if (totalPaginas <= 1) {
+                document.getElementById(containerId).innerHTML = `<span>Total: ${totalItems} items</span>`;
+                return;
+            }
+
+            document.getElementById(containerId).innerHTML = `
+                <button onclick="cambiarPagina('${tipo}', ${paginaActual - 1})" ${paginaActual === 1 ? 'disabled' : ''}>← Anterior</button>
+                <span>Página ${paginaActual} de ${totalPaginas} (Total: ${totalItems})</span>
+                <button onclick="cambiarPagina('${tipo}', ${paginaActual + 1})" ${paginaActual === totalPaginas ? 'disabled' : ''}>Siguiente →</button>
+            `;
+        }
+
+        function cambiarPagina(tipo, nuevaPagina) {
+            if (tipo === 'inventario') {
+                paginaInventario = nuevaPagina;
+                renderizarInventario();
+            } else if (tipo === 'productosSystem') {
+                paginaProductosSystem = nuevaPagina;
+                renderizarProductosSystem();
+            }
+        }
+
+        function debounceSearch() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                paginaInventario = 1;
+                renderizarInventario();
+            }, 300);
+        }
+
+        function filtrarInventario() {
+            paginaInventario = 1;
+            renderizarInventario();
+        }
 
         async function procesarInventarioMasivo(event) {
             const file = event.target.files[0];
@@ -1000,7 +1050,6 @@
         async function procesarModificarMasivo(event) {
             const file = event.target.files[0];
             if (!file) return;
-            
             cargaMasivaEnProceso = true;
             document.getElementById('loadingOverlay').classList.add('active');
             cerrarModal('modalModificarMasivo');
@@ -1082,81 +1131,6 @@
             actualizarDashboard();
         }
 
-        function renderizarInventario() {
-            const busqueda = document.getElementById('buscarInventario')?.value.toLowerCase() || '';
-            const filtrado = inventario.filter(item => 
-                item.variante.toLowerCase().includes(busqueda) ||
-                item.ubicacion.toLowerCase().includes(busqueda)
-            );
-
-            // Paginación
-            const totalPaginas = Math.ceil(filtrado.length / ITEMS_POR_PAGINA);
-            const inicio = (paginaInventario - 1) * ITEMS_POR_PAGINA;
-            const fin = inicio + ITEMS_POR_PAGINA;
-            const itemsPagina = filtrado.slice(inicio, fin);
-
-            // Renderizar solo la página actual
-            document.getElementById('inventarioTableBody').innerHTML = itemsPagina.map(item => `
-                <tr>
-                    <td><strong>${item.variante}</strong></td>
-                    <td>${item.ubicacion}</td>
-                    <td>${item.stockFisico}</td>
-                    <td style="color: var(--warning);">${item.stockBloqueado}</td>
-                    <td style="color: var(--success);"><strong>${item.stockFisico - item.stockBloqueado}</strong></td>
-                    <td>
-                        <button class="btn btn-outline" style="padding: 0.25rem 0.75rem; font-size: 0.875rem;" onclick="editarInventario('${item.variante}', '${item.ubicacion}')">Editar</button>
-                        <button class="btn btn-danger" style="padding: 0.25rem 0.75rem; font-size: 0.875rem;" onclick="eliminarInventario('${item.variante}', '${item.ubicacion}')">Eliminar</button>
-                    </td>
-                </tr>
-            `).join('');
-
-            // Controles de paginación
-            renderizarPaginacion('inventario', totalPaginas, filtrado.length);
-        }
-
-        function renderizarPaginacion(tipo, totalPaginas, totalItems) {
-            const paginaActual = tipo === 'inventario' ? paginaInventario : paginaProductosSystem;
-            const containerId = tipo === 'inventario' ? 'inventarioPagination' : 'productosSystemPagination';
-            
-            if (totalPaginas <= 1) {
-                document.getElementById(containerId).innerHTML = `<span>Total: ${totalItems} items</span>`;
-                return;
-            }
-
-            document.getElementById(containerId).innerHTML = `
-                <button onclick="cambiarPagina('${tipo}', ${paginaActual - 1})" ${paginaActual === 1 ? 'disabled' : ''}>
-                    ← Anterior
-                </button>
-                <span>Página ${paginaActual} de ${totalPaginas} (Total: ${totalItems})</span>
-                <button onclick="cambiarPagina('${tipo}', ${paginaActual + 1})" ${paginaActual === totalPaginas ? 'disabled' : ''}>
-                    Siguiente →
-                </button>
-            `;
-        }
-
-        function cambiarPagina(tipo, nuevaPagina) {
-            if (tipo === 'inventario') {
-                paginaInventario = nuevaPagina;
-                renderizarInventario();
-            } else if (tipo === 'productosSystem') {
-                paginaProductosSystem = nuevaPagina;
-                renderizarProductosSystem();
-            }
-        }
-
-        function debounceSearch() {
-            clearTimeout(searchTimeout);
-            searchTimeout = setTimeout(() => {
-                paginaInventario = 1;
-                renderizarInventario();
-            }, 300);
-        }
-
-        function filtrarInventario() {
-            paginaInventario = 1;
-            renderizarInventario();
-        }
-
         function editarInventario(variante, ubicacion) {
             const item = inventario.find(i => i.variante === variante && i.ubicacion === ubicacion);
             const nuevoStock = prompt(`Editar stock para ${variante} en ${ubicacion}\nStock actual: ${item.stockFisico}`, item.stockFisico);
@@ -1187,9 +1161,55 @@
             mostrarToast('Inventario exportado', 'success');
         }
 
-        // ==========================================
-        // PRODUCTOS SYSTEM
-        // ==========================================
+        // PRODUCTOS SYSTEM CON BÚSQUEDA
+        function renderizarProductosSystem() {
+            const busqueda = document.getElementById('buscarProductosSystem')?.value.toLowerCase() || '';
+            const filtrado = productosSystem.filter(prod => 
+                prod.variante.toLowerCase().includes(busqueda) ||
+                prod.codigoComercial.toLowerCase().includes(busqueda) ||
+                prod.descripcion.toLowerCase().includes(busqueda) ||
+                prod.marca.toLowerCase().includes(busqueda) ||
+                prod.talla.toLowerCase().includes(busqueda) ||
+                prod.color.toLowerCase().includes(busqueda) ||
+                prod.genero.toLowerCase().includes(busqueda)
+            );
+
+            const totalPaginas = Math.ceil(filtrado.length / ITEMS_POR_PAGINA);
+            const inicio = (paginaProductosSystem - 1) * ITEMS_POR_PAGINA;
+            const fin = inicio + ITEMS_POR_PAGINA;
+            const itemsPagina = filtrado.slice(inicio, fin);
+
+            document.getElementById('productosSystemTableBody').innerHTML = itemsPagina.map(prod => {
+                const stockFisico = inventario.filter(i => i.variante === prod.variante).reduce((sum, i) => sum + i.stockFisico, 0);
+                const diferencia = Math.abs(stockFisico - prod.stkFin);
+                const estado = diferencia === 0 ? 'OK' : diferencia <= 5 ? 'REVISAR' : 'ALERTA';
+                const colorEstado = estado === 'OK' ? 'green' : estado === 'REVISAR' ? 'yellow' : 'red';
+
+                return `
+                    <tr>
+                        <td><strong>${prod.variante}</strong></td>
+                        <td>${prod.codigoComercial}</td>
+                        <td>${prod.descripcion}</td>
+                        <td>${prod.marca}</td>
+                        <td>${prod.talla}</td>
+                        <td>S/ ${prod.pvp.toFixed(2)}</td>
+                        <td>${prod.stkFin}</td>
+                        <td>${stockFisico}</td>
+                        <td><span class="badge badge-${colorEstado}">${estado}</span></td>
+                    </tr>
+                `;
+            }).join('');
+
+            renderizarPaginacion('productosSystem', totalPaginas, filtrado.length);
+        }
+
+        function debounceSearchProductos() {
+            clearTimeout(searchProductosTimeout);
+            searchProductosTimeout = setTimeout(() => {
+                paginaProductosSystem = 1;
+                renderizarProductosSystem();
+            }, 300);
+        }
 
         function procesarProductosSystem(event) {
             const file = event.target.files[0];
@@ -1236,69 +1256,30 @@
             reader.readAsArrayBuffer(file);
         }
 
-        function renderizarProductosSystem() {
-            // Paginación
-            const totalPaginas = Math.ceil(productosSystem.length / ITEMS_POR_PAGINA);
-            const inicio = (paginaProductosSystem - 1) * ITEMS_POR_PAGINA;
-            const fin = inicio + ITEMS_POR_PAGINA;
-            const itemsPagina = productosSystem.slice(inicio, fin);
-
-            document.getElementById('productosSystemTableBody').innerHTML = itemsPagina.map(prod => {
-                const stockFisico = inventario
-                    .filter(i => i.variante === prod.variante)
-                    .reduce((sum, i) => sum + i.stockFisico, 0);
-                
-                const diferencia = Math.abs(stockFisico - prod.stkFin);
-                const estado = diferencia === 0 ? 'OK' : diferencia <= 5 ? 'REVISAR' : 'ALERTA';
-                const colorEstado = estado === 'OK' ? 'green' : estado === 'REVISAR' ? 'yellow' : 'red';
-
-                return `
-                    <tr>
-                        <td><strong>${prod.variante}</strong></td>
-                        <td>${prod.codigoComercial}</td>
-                        <td>${prod.descripcion}</td>
-                        <td>${prod.marca}</td>
-                        <td>${prod.talla}</td>
-                        <td>S/ ${prod.pvp.toFixed(2)}</td>
-                        <td>${prod.stkFin}</td>
-                        <td>${stockFisico}</td>
-                        <td><span class="badge badge-${colorEstado}">${estado}</span></td>
-                    </tr>
-                `;
-            }).join('');
-
-            // Controles de paginación
-            renderizarPaginacion('productosSystem', totalPaginas, productosSystem.length);
-        }
-
         function verificarDiscrepancias() {
             const discrepancias = productosSystem.filter(prod => {
-                const stockFisico = inventario
-                    .filter(i => i.variante === prod.variante)
-                    .reduce((sum, i) => sum + i.stockFisico, 0);
+                const stockFisico = inventario.filter(i => i.variante === prod.variante).reduce((sum, i) => sum + i.stockFisico, 0);
                 return Math.abs(stockFisico - prod.stkFin) > 5;
             });
 
             const alertDiv = document.getElementById('discrepanciasAlert');
             if (discrepancias.length > 0) {
-                alertDiv.innerHTML = `
-                    <div class="alert alert-danger">
-                        <strong>⚠️ ${discrepancias.length} variantes con discrepancias mayores a 5 unidades</strong>
-                        <br>Se requiere verificación del área de picking.
-                    </div>
-                `;
+                alertDiv.innerHTML = `<div class="alert alert-danger"><strong>⚠️ ${discrepancias.length} variantes con discrepancias mayores a 5 unidades</strong><br>Se requiere verificación del área de picking.</div>`;
             } else {
                 alertDiv.innerHTML = '<div class="alert alert-success">✓ Todos los stocks coinciden</div>';
             }
         }
 
-        // ==========================================
-        // ÓRDENES
-        // ==========================================
-
+        // ÓRDENES CON EDITAR/ELIMINAR
         async function procesarOrden(event) {
             const file = event.target.files[0];
             if (!file) return;
+
+            const nombreOrden = document.getElementById('nombreOrden').value.trim();
+            if (!nombreOrden) {
+                mostrarToast('Por favor ingresa un nombre para la orden', 'warning');
+                return;
+            }
 
             cargaMasivaEnProceso = true;
             document.getElementById('loadingOverlay').classList.add('active');
@@ -1343,7 +1324,6 @@
                         }
                     }
 
-                    // Asignar ubicaciones priorizando menor stock
                     for (const item of items) {
                         const ubicacionesDisponibles = inventario
                             .filter(inv => inv.variante === item.variante)
@@ -1351,16 +1331,11 @@
                             .sort((a, b) => (a.stockFisico - a.stockBloqueado) - (b.stockFisico - b.stockBloqueado));
 
                         let restante = item.cantidadSolicitada;
-                        
                         for (const ubicacion of ubicacionesDisponibles) {
                             if (restante <= 0) break;
                             const disponible = ubicacion.stockFisico - ubicacion.stockBloqueado;
                             const tomar = Math.min(disponible, restante);
-                            item.ubicaciones.push({
-                                ubicacion: ubicacion.ubicacion,
-                                cantidad: tomar,
-                                encontrada: 0
-                            });
+                            item.ubicaciones.push({ ubicacion: ubicacion.ubicacion, cantidad: tomar, encontrada: 0 });
                             restante -= tomar;
                         }
 
@@ -1369,7 +1344,6 @@
                         }
                     }
 
-                    // Generar hoja de ruta para picking
                     const hojaRutaPicking = [];
                     for (const item of items) {
                         for (const ub of item.ubicaciones) {
@@ -1388,11 +1362,11 @@
                         }
                     }
 
-                    // Ordenar por ubicación
                     hojaRutaPicking.sort((a, b) => a.ubicacion.localeCompare(b.ubicacion));
 
                     const orden = {
                         id: ordenId,
+                        nombre: nombreOrden,
                         fecha: new Date(),
                         estado: 'Pendiente Picking',
                         totalUnidades,
@@ -1413,7 +1387,8 @@
 
                     cargaMasivaEnProceso = false;
                     document.getElementById('loadingOverlay').classList.remove('active');
-                    mostrarToast(`Orden ${ordenId} creada exitosamente`, 'success');
+                    mostrarToast(`Orden "${nombreOrden}" creada exitosamente`, 'success');
+                    document.getElementById('nombreOrden').value = '';
                     renderizarOrdenes();
                     renderizarPicking();
                     actualizarDashboard();
@@ -1438,12 +1413,8 @@
                                    orden.estado === 'En Picking' ? 'blue' : 'red';
 
                 const fechaHora = orden.fecha.toLocaleString('es-PE', {
-                    day: '2-digit',
-                    month: '2-digit',
-                    year: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    hour12: true
+                    day: '2-digit', month: '2-digit', year: 'numeric',
+                    hour: '2-digit', minute: '2-digit', hour12: true
                 });
 
                 const puedeEditar = orden.estado === 'Pendiente Picking';
@@ -1456,11 +1427,7 @@
                         <td>${fechaHora}</td>
                         <td>${orden.totalUnidades}</td>
                         <td><span class="badge badge-${colorEstado}">${orden.estado}</span></td>
-                        <td>
-                            <div class="progress-bar">
-                                <div class="progress-fill" style="width: ${progreso}%;"></div>
-                            </div>
-                        </td>
+                        <td><div class="progress-bar"><div class="progress-fill" style="width: ${progreso}%;"></div></div></td>
                         <td style="white-space: nowrap;">
                             <button class="btn btn-outline" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" onclick="descargarHojaPicking('${orden.id}')">📥 Picking</button>
                             ${orden.estado === 'Pendiente Packing' ? `<button class="btn btn-outline" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" onclick="descargarHojaPacking('${orden.id}')">📥 Packing</button>` : ''}
@@ -1475,7 +1442,6 @@
         function editarOrden(ordenId) {
             const orden = ordenes.find(o => o.id === ordenId);
             if (!orden) return;
-
             document.getElementById('ordenIdEditar').value = ordenId;
             document.getElementById('nombreOrdenEditar').value = orden.nombre || '';
             mostrarModal('modalEditarOrden');
@@ -1507,12 +1473,9 @@
             const orden = ordenes.find(o => o.id === ordenId);
             if (!orden) return;
 
-            // Si hay stock bloqueado, desbloquearlo
             for (const item of orden.items) {
                 for (const ub of item.ubicaciones) {
-                    const itemInv = inventario.find(i => 
-                        i.variante === item.variante && i.ubicacion === ub.ubicacion
-                    );
+                    const itemInv = inventario.find(i => i.variante === item.variante && i.ubicacion === ub.ubicacion);
                     if (itemInv && itemInv.stockBloqueado > 0) {
                         const cantidadBloqueada = orden.cantidadesEncontradas?.[`${item.variante}|${ub.ubicacion}`] || 0;
                         itemInv.stockBloqueado = Math.max(0, itemInv.stockBloqueado - cantidadBloqueada);
@@ -1523,7 +1486,6 @@
             ordenes = ordenes.filter(o => o.id !== ordenId);
             await guardarOrdenesSheets();
             await guardarInventarioSheets();
-
             mostrarToast('Orden eliminada correctamente', 'success');
             renderizarOrdenes();
             renderizarPicking();
@@ -1534,7 +1496,6 @@
         function descargarHojaPicking(ordenId) {
             const orden = ordenes.find(o => o.id === ordenId);
             if (!orden) return;
-
             const ws = XLSX.utils.json_to_sheet(orden.hojaRutaPicking);
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, 'Hoja Ruta Picking');
@@ -1545,7 +1506,6 @@
         function descargarHojaPacking(ordenId) {
             const orden = ordenes.find(o => o.id === ordenId);
             if (!orden || !orden.hojaPacking.length) return;
-
             const ws = XLSX.utils.json_to_sheet(orden.hojaPacking);
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, 'Hoja Packing');
@@ -1553,25 +1513,16 @@
             mostrarToast('Hoja de packing descargada', 'success');
         }
 
-        // ==========================================
-        // PICKING
-        // ==========================================
-
+        // PICKING - RESTA DIRECTA DEL STOCK FÍSICO
         function renderizarPicking() {
             const ordenesPicking = ordenes.filter(o => o.estado === 'Pendiente Picking' || o.estado === 'En Picking');
-            
             document.getElementById('pickingOrdenesContainer').innerHTML = ordenesPicking.length === 0 ? 
                 '<p style="color: var(--text-secondary);">No hay órdenes pendientes de picking</p>' :
                 ordenesPicking.map(orden => {
                     const fechaHora = orden.fecha.toLocaleString('es-PE', {
-                        day: '2-digit',
-                        month: '2-digit',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        hour12: true
+                        day: '2-digit', month: '2-digit', year: 'numeric',
+                        hour: '2-digit', minute: '2-digit', hour12: true
                     });
-
                     return `
                         <div class="orden-card">
                             <div class="orden-header">
@@ -1630,12 +1581,10 @@
                         cantidadesEncontradas[key] = encontrada;
                         totalEncontradas += encontrada;
 
-                        // CRÍTICO: Restar del stock físico y desbloquear
+                        // RESTA DIRECTA DEL STOCK FÍSICO
                         const itemInv = inventario.find(i => i.variante === variante && i.ubicacion === ubicacion);
                         if (itemInv) {
-                            // Restar del stock físico
                             itemInv.stockFisico = Math.max(0, itemInv.stockFisico - encontrada);
-                            // NO bloquear, ya se resta directamente
                             itemInv.stockBloqueado = 0;
                         }
                     }
@@ -1644,21 +1593,18 @@
                     orden.unidadesEncontradas = totalEncontradas;
                     orden.unidadesFaltantes = orden.totalUnidades - totalEncontradas;
 
-                    // Generar distribución ajustada
                     if (orden.unidadesFaltantes > 0) {
                         ajustarDistribucion(orden);
                     }
 
                     orden.estado = 'Pendiente Packing';
-                    
-                    // Generar hoja de packing
                     generarHojaPacking(orden);
 
                     await guardarInventarioSheets();
                     await guardarOrdenesSheets();
 
                     document.getElementById('loadingOverlay').classList.remove('active');
-                    mostrarToast(`Cantidades confirmadas. Unidades restadas del inventario: ${totalEncontradas}`, 'success');
+                    mostrarToast(`Cantidades confirmadas. Unidades restadas: ${totalEncontradas}`, 'success');
                     
                     renderizarInventario();
                     renderizarOrdenes();
@@ -1676,7 +1622,6 @@
 
         function ajustarDistribucion(orden) {
             const factorReduccion = orden.unidadesEncontradas / orden.totalUnidades;
-
             for (const item of orden.items) {
                 const nuevaDistribucion = {};
                 TIENDAS_LUKERS.forEach(tienda => {
@@ -1686,17 +1631,14 @@
                 });
                 item.distribucionAjustada = nuevaDistribucion;
             }
-
             orden.distribucionAjustada = true;
         }
 
         function generarHojaPacking(orden) {
             const hojaPacking = [];
-
             for (const item of orden.items) {
                 const dist = item.distribucionAjustada || item.distribucion;
                 const prodSystem = productosSystem.find(p => p.variante === item.variante) || {};
-                
                 hojaPacking.push({
                     variante: item.variante,
                     marca: prodSystem.marca || '',
@@ -1707,29 +1649,18 @@
                     ...dist
                 });
             }
-
             orden.hojaPacking = hojaPacking;
         }
 
-        // ==========================================
-        // PACKING
-        // ==========================================
-
         function renderizarPacking() {
             const ordenesPacking = ordenes.filter(o => o.estado === 'Pendiente Packing');
-            
             document.getElementById('packingOrdenesContainer').innerHTML = ordenesPacking.length === 0 ? 
                 '<p style="color: var(--text-secondary);">No hay órdenes pendientes de packing</p>' :
                 ordenesPacking.map(orden => {
                     const fechaHora = orden.fecha.toLocaleString('es-PE', {
-                        day: '2-digit',
-                        month: '2-digit',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        hour12: true
+                        day: '2-digit', month: '2-digit', year: 'numeric',
+                        hour: '2-digit', minute: '2-digit', hour12: true
                     });
-
                     return `
                         <div class="orden-card">
                             <div class="orden-header">
@@ -1771,14 +1702,10 @@
             const orden = ordenes.find(o => o.id === ordenId);
             if (!orden) return;
 
-            if (!orden.observaciones) {
-                orden.observaciones = [];
-            }
-
+            if (!orden.observaciones) orden.observaciones = [];
             orden.observaciones.push({ variante, cantidad, motivo });
             orden.prendasRechazadas += cantidad;
 
-            // Crear item de reclasificación
             const reclasId = 'RECLA-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5);
             itemsReclasificacion.push({
                 id: reclasId,
@@ -1794,12 +1721,10 @@
             cerrarModal('modalObservacionesPacking');
             guardarOrdenesSheets();
             guardarReclasificacionSheets();
-            
             mostrarToast('Observación registrada', 'success');
             renderizarPacking();
             renderizarReclasificacion();
 
-            // Limpiar formulario
             document.getElementById('varianteObservacion').value = '';
             document.getElementById('cantidadRechazar').value = '';
             document.getElementById('motivoRechazo').value = '';
@@ -1807,16 +1732,11 @@
 
         async function cerrarOrden(ordenId) {
             if (!confirm('¿Cerrar esta orden? Esto finalizará el proceso.')) return;
-
             const orden = ordenes.find(o => o.id === ordenId);
             if (!orden) return;
 
-            // Ya no restamos del inventario aquí porque se restó en picking
-            // Solo cambiamos el estado a completada
-
             orden.estado = 'Completada';
             orden.fechaCierre = new Date();
-
             await guardarOrdenesSheets();
 
             mostrarToast('Orden cerrada exitosamente', 'success');
@@ -1824,10 +1744,6 @@
             renderizarPacking();
             actualizarDashboard();
         }
-
-        // ==========================================
-        // RECLASIFICACIÓN
-        // ==========================================
 
         function renderizarReclasificacion() {
             document.getElementById('reclasificacionTableBody').innerHTML = itemsReclasificacion.map(item => {
@@ -1861,7 +1777,6 @@
         function abrirModalReclasificar(itemId) {
             document.getElementById('reclasificarItemId').value = itemId;
             const item = itemsReclasificacion.find(i => i.id === itemId);
-            
             if (item.motivo === 'mal_estado') {
                 document.getElementById('nuevaUbicacion').value = '191';
                 document.getElementById('nuevaVariante').value = '';
@@ -1869,7 +1784,6 @@
             } else {
                 document.getElementById('nuevaVariante').disabled = false;
             }
-            
             mostrarModal('modalReclasificar');
         }
 
@@ -1890,7 +1804,6 @@
             item.ubicacionDestino = nuevaUbicacion;
             item.estado = 'Completada';
 
-            // Agregar al inventario
             const existente = inventario.find(inv => 
                 inv.variante === item.nuevaVariante && inv.ubicacion === nuevaUbicacion
             );
@@ -1915,14 +1828,9 @@
             renderizarReclasificacion();
             actualizarDashboard();
 
-            // Limpiar formulario
             document.getElementById('nuevaVariante').value = '';
             document.getElementById('nuevaUbicacion').value = '';
         }
-
-        // ==========================================
-        // INICIALIZACIÓN
-        // ==========================================
 
         window.gapiLoaded = gapiLoaded;
         window.gisLoaded = gisLoaded;
