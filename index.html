@@ -217,6 +217,9 @@
                                 Verificar Discrepancias
                             </button>
                         </div>
+                        <div class="form-group">
+                            <input type="text" class="form-control" placeholder="Buscar en Productos System..." id="buscarProductosSystem" oninput="debounceSearchProductos()">
+                        </div>
                         <div id="discrepanciasAlert"></div>
                         <div class="table-container">
                             <table class="table">
@@ -474,6 +477,34 @@
         </div>
     </div>
 
+    <div class="modal-overlay" id="modalVisualizarProducto">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Información Completa del Producto</h3>
+                <button onclick="cerrarModal('modalVisualizarProducto')" style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">×</button>
+            </div>
+            <div id="infoProductoCompleta"></div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modalEditarOrden">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Editar Orden</h3>
+                <button onclick="cerrarModal('modalEditarOrden')" style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">×</button>
+            </div>
+            <input type="hidden" id="ordenIdEditar">
+            <div class="form-group">
+                <label class="form-label">Nombre de la Orden</label>
+                <input type="text" class="form-control" id="nombreOrdenEditar">
+            </div>
+            <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1.5rem;">
+                <button type="button" class="btn btn-outline" onclick="cerrarModal('modalEditarOrden')">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="guardarEdicionOrden()">Guardar</button>
+            </div>
+        </div>
+    </div>
+
     <div class="modal-overlay" id="loadingOverlay">
         <div style="background: var(--bg-card); padding: 3rem; border-radius: 1rem; text-align: center; min-width: 400px;">
             <div class="loading-spinner"></div>
@@ -519,6 +550,7 @@
         let paginaProductosSystem = 1;
         const ITEMS_POR_PAGINA = 100;
         let searchTimeout = null;
+        let searchProductosTimeout = null;
 
         // ==========================================
         // GOOGLE API
@@ -1395,6 +1427,8 @@
                     hour12: true
                 });
 
+                const puedeEditar = orden.estado === 'Pendiente Picking';
+
                 return `
                     <tr>
                         <td><strong>${orden.id}</strong></td>
@@ -1410,10 +1444,71 @@
                         <td>
                             <button class="btn btn-outline" style="padding: 0.25rem 0.75rem; font-size: 0.875rem;" onclick="descargarHojaPicking('${orden.id}')">Hoja Picking</button>
                             ${orden.estado === 'Pendiente Packing' ? `<button class="btn btn-outline" style="padding: 0.25rem 0.75rem; font-size: 0.875rem;" onclick="descargarHojaPacking('${orden.id}')">Hoja Packing</button>` : ''}
+                            ${puedeEditar ? `<button class="btn btn-warning" style="padding: 0.25rem 0.75rem; font-size: 0.875rem;" onclick="editarOrden('${orden.id}')">✏️</button>` : ''}
+                            ${puedeEditar ? `<button class="btn btn-danger" style="padding: 0.25rem 0.75rem; font-size: 0.875rem;" onclick="eliminarOrden('${orden.id}')">🗑️</button>` : ''}
                         </td>
                     </tr>
                 `;
             }).join('');
+        }
+
+        function editarOrden(ordenId) {
+            const orden = ordenes.find(o => o.id === ordenId);
+            if (!orden) return;
+
+            document.getElementById('ordenIdEditar').value = ordenId;
+            document.getElementById('nombreOrdenEditar').value = orden.nombre || '';
+            mostrarModal('modalEditarOrden');
+        }
+
+        async function guardarEdicionOrden() {
+            const ordenId = document.getElementById('ordenIdEditar').value;
+            const nuevoNombre = document.getElementById('nombreOrdenEditar').value.trim();
+
+            if (!nuevoNombre) {
+                mostrarToast('El nombre no puede estar vacío', 'warning');
+                return;
+            }
+
+            const orden = ordenes.find(o => o.id === ordenId);
+            if (orden) {
+                orden.nombre = nuevoNombre;
+                await guardarOrdenesSheets();
+                mostrarToast('Orden actualizada correctamente', 'success');
+                cerrarModal('modalEditarOrden');
+                renderizarOrdenes();
+                renderizarPicking();
+            }
+        }
+
+        async function eliminarOrden(ordenId) {
+            if (!confirm('¿Estás seguro de eliminar esta orden? Esta acción no se puede deshacer.')) return;
+
+            const orden = ordenes.find(o => o.id === ordenId);
+            if (!orden) return;
+
+            // Si hay stock bloqueado, desbloquearlo
+            for (const item of orden.items) {
+                for (const ub of item.ubicaciones) {
+                    const itemInv = inventario.find(i => 
+                        i.variante === item.variante && i.ubicacion === ub.ubicacion
+                    );
+                    if (itemInv && itemInv.stockBloqueado > 0) {
+                        const cantidadBloqueada = orden.cantidadesEncontradas?.[`${item.variante}|${ub.ubicacion}`] || 0;
+                        itemInv.stockBloqueado = Math.max(0, itemInv.stockBloqueado - cantidadBloqueada);
+                    }
+                }
+            }
+
+            ordenes = ordenes.filter(o => o.id !== ordenId);
+            await guardarOrdenesSheets();
+            await guardarInventarioSheets();
+
+            mostrarToast('Orden eliminada correctamente', 'success');
+            renderizarOrdenes();
+            renderizarPicking();
+            renderizarInventario();
+            actualizarDashboard();
         }
 
         function descargarHojaPicking(ordenId) {
@@ -1515,10 +1610,13 @@
                         cantidadesEncontradas[key] = encontrada;
                         totalEncontradas += encontrada;
 
-                        // Bloquear inventario
+                        // CRÍTICO: Restar del stock físico y desbloquear
                         const itemInv = inventario.find(i => i.variante === variante && i.ubicacion === ubicacion);
                         if (itemInv) {
-                            itemInv.stockBloqueado += encontrada;
+                            // Restar del stock físico
+                            itemInv.stockFisico = Math.max(0, itemInv.stockFisico - encontrada);
+                            // NO bloquear, ya se resta directamente
+                            itemInv.stockBloqueado = 0;
                         }
                     }
 
@@ -1540,7 +1638,7 @@
                     await guardarOrdenesSheets();
 
                     document.getElementById('loadingOverlay').classList.remove('active');
-                    mostrarToast(`Cantidades confirmadas. Unidades bloqueadas: ${totalEncontradas}`, 'success');
+                    mostrarToast(`Cantidades confirmadas. Unidades restadas del inventario: ${totalEncontradas}`, 'success');
                     
                     renderizarInventario();
                     renderizarOrdenes();
@@ -1688,33 +1786,20 @@
         }
 
         async function cerrarOrden(ordenId) {
-            if (!confirm('¿Cerrar esta orden? Las unidades bloqueadas se descontarán del inventario.')) return;
+            if (!confirm('¿Cerrar esta orden? Esto finalizará el proceso.')) return;
 
             const orden = ordenes.find(o => o.id === ordenId);
             if (!orden) return;
 
-            // Descontar del inventario las unidades bloqueadas
-            for (const item of orden.items) {
-                for (const ub of item.ubicaciones) {
-                    const itemInv = inventario.find(i => 
-                        i.variante === item.variante && i.ubicacion === ub.ubicacion
-                    );
-                    if (itemInv) {
-                        const cantidadEncontrada = orden.cantidadesEncontradas?.[`${item.variante}|${ub.ubicacion}`] || 0;
-                        itemInv.stockFisico -= cantidadEncontrada;
-                        itemInv.stockBloqueado -= cantidadEncontrada;
-                    }
-                }
-            }
+            // Ya no restamos del inventario aquí porque se restó en picking
+            // Solo cambiamos el estado a completada
 
             orden.estado = 'Completada';
             orden.fechaCierre = new Date();
 
-            await guardarInventarioSheets();
             await guardarOrdenesSheets();
 
             mostrarToast('Orden cerrada exitosamente', 'success');
-            renderizarInventario();
             renderizarOrdenes();
             renderizarPacking();
             actualizarDashboard();
