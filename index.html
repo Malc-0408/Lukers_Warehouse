@@ -782,11 +782,14 @@
         async function cargarOrdenesSheets() {
             const rows = await leerHoja('ordenes');
             if (rows.length === 0) return;
+            
             ordenes = [];
+            console.log('Filas de órdenes cargadas:', rows.length); // Debug
+            
             for (let i = 1; i < rows.length; i++) {
                 const row = rows[i];
                 try {
-                    ordenes.push({
+                    const ordenObj = {
                         id: row[0] || '',
                         nombre: row[1] || '',
                         fecha: new Date(row[2]),
@@ -802,11 +805,16 @@
                         observaciones: JSON.parse(row[12] || 'null'),
                         prendasRechazadas: parseInt(row[13]) || 0,
                         fechaCierre: row[14] ? new Date(row[14]) : null
-                    });
+                    };
+                    
+                    console.log(`Orden ${i} cargada:`, ordenObj.id, 'Nombre:', ordenObj.nombre); // Debug
+                    ordenes.push(ordenObj);
                 } catch (e) {
                     console.error('Error al parsear orden:', e);
                 }
             }
+            
+            console.log('Total órdenes cargadas:', ordenes.length); // Debug
         }
 
         async function guardarOrdenesSheets() {
@@ -815,14 +823,25 @@
                  'cantidadesEncontradas', 'unidadesEncontradas', 'unidadesFaltantes', 
                  'distribucionAjustada', 'observaciones', 'prendasRechazadas', 'fechaCierre'],
                 ...ordenes.map(o => [
-                    o.id, o.nombre || '', o.fecha.toISOString(), o.estado, o.totalUnidades,
-                    JSON.stringify(o.items || []), JSON.stringify(o.hojaRutaPicking || []),
-                    JSON.stringify(o.hojaPacking || []), JSON.stringify(o.cantidadesEncontradas || null),
-                    o.unidadesEncontradas || 0, o.unidadesFaltantes || 0,
-                    o.distribucionAjustada || false, JSON.stringify(o.observaciones || null),
-                    o.prendasRechazadas || 0, o.fechaCierre ? o.fechaCierre.toISOString() : ''
+                    o.id, 
+                    o.nombre || '', 
+                    o.fecha.toISOString(), 
+                    o.estado, 
+                    o.totalUnidades,
+                    JSON.stringify(o.items || []), 
+                    JSON.stringify(o.hojaRutaPicking || []),
+                    JSON.stringify(o.hojaPacking || []), 
+                    JSON.stringify(o.cantidadesEncontradas || null),
+                    o.unidadesEncontradas || 0, 
+                    o.unidadesFaltantes || 0,
+                    o.distribucionAjustada || false, 
+                    JSON.stringify(o.observaciones || null),
+                    o.prendasRechazadas || 0, 
+                    o.fechaCierre ? o.fechaCierre.toISOString() : ''
                 ])
             ];
+            
+            console.log('Guardando órdenes en Sheets:', valores); // Debug
             await escribirHoja('ordenes', valores);
         }
 
@@ -1428,11 +1447,12 @@
                 });
 
                 const puedeEditar = orden.estado === 'Pendiente Picking';
+                const nombreOrden = orden.nombre && orden.nombre.trim() !== '' ? orden.nombre : 'Sin nombre';
 
                 return `
                     <tr>
                         <td><strong>${orden.id}</strong></td>
-                        <td><strong style="color: var(--primary);">${orden.nombre || 'Sin nombre'}</strong></td>
+                        <td><strong style="color: var(--primary);">${nombreOrden}</strong></td>
                         <td>${fechaHora}</td>
                         <td>${orden.totalUnidades}</td>
                         <td><span class="badge badge-${colorEstado}">${orden.estado}</span></td>
@@ -1441,11 +1461,11 @@
                                 <div class="progress-fill" style="width: ${progreso}%;"></div>
                             </div>
                         </td>
-                        <td>
-                            <button class="btn btn-outline" style="padding: 0.25rem 0.75rem; font-size: 0.875rem;" onclick="descargarHojaPicking('${orden.id}')">Hoja Picking</button>
-                            ${orden.estado === 'Pendiente Packing' ? `<button class="btn btn-outline" style="padding: 0.25rem 0.75rem; font-size: 0.875rem;" onclick="descargarHojaPacking('${orden.id}')">Hoja Packing</button>` : ''}
-                            ${puedeEditar ? `<button class="btn btn-warning" style="padding: 0.25rem 0.75rem; font-size: 0.875rem;" onclick="editarOrden('${orden.id}')">✏️</button>` : ''}
-                            ${puedeEditar ? `<button class="btn btn-danger" style="padding: 0.25rem 0.75rem; font-size: 0.875rem;" onclick="eliminarOrden('${orden.id}')">🗑️</button>` : ''}
+                        <td style="white-space: nowrap;">
+                            <button class="btn btn-outline" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" onclick="descargarHojaPicking('${orden.id}')">📥 Picking</button>
+                            ${orden.estado === 'Pendiente Packing' ? `<button class="btn btn-outline" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" onclick="descargarHojaPacking('${orden.id}')">📥 Packing</button>` : ''}
+                            ${puedeEditar ? `<button class="btn btn-warning" style="padding: 0.25rem 0.5rem; font-size: 1rem;" onclick="editarOrden('${orden.id}')" title="Editar">✏️</button>` : ''}
+                            ${puedeEditar ? `<button class="btn btn-danger" style="padding: 0.25rem 0.5rem; font-size: 1rem;" onclick="eliminarOrden('${orden.id}')" title="Eliminar">🗑️</button>` : ''}
                         </td>
                     </tr>
                 `;
