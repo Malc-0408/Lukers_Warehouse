@@ -295,6 +295,7 @@
                                         <th>Ubicación Original</th>
                                         <th>Motivo</th>
                                         <th>Cantidad</th>
+                                        <th>Comentario</th>
                                         <th>Estado</th>
                                         <th>Acciones</th>
                                     </tr>
@@ -444,6 +445,10 @@
                     <option value="no_corresponde_talla">No Corresponde a su Talla</option>
                 </select>
             </div>
+            <div class="form-group">
+                <label class="form-label">Comentario *</label>
+                <textarea class="form-control" id="comentarioRechazo" rows="3" placeholder="Describe detalles adicionales sobre el rechazo..." required></textarea>
+            </div>
             <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1.5rem;">
                 <button type="button" class="btn btn-outline" onclick="cerrarModal('modalObservacionesPacking')">Cancelar</button>
                 <button type="button" class="btn btn-danger" onclick="registrarObservacionPacking()">Registrar</button>
@@ -541,6 +546,19 @@
             <p style="margin-top: 0.5rem; font-size: 0.875rem; color: var(--text-secondary);">
                 <span id="loadingText">Cargando...</span>
             </p>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modalVerComentario">
+        <div class="modal" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3 class="modal-title">Comentario de Packing</h3>
+                <button onclick="cerrarModal('modalVerComentario')" style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">×</button>
+            </div>
+            <div id="contenidoComentario" style="padding: 1rem; background: var(--bg-primary); border-radius: 0.5rem; min-height: 100px;"></div>
+            <div style="margin-top: 1.5rem;">
+                <button type="button" class="btn btn-primary" onclick="cerrarModal('modalVerComentario')" style="width: 100%;">Cerrar</button>
+            </div>
         </div>
     </div>
 
@@ -856,19 +874,20 @@
                     ubicacionOriginal: row[3] || '',
                     cantidad: parseInt(row[4]) || 0,
                     motivo: row[5] || '',
-                    estado: row[6] || '',
-                    ubicacionDestino: row[7] || null,
-                    nuevaVariante: row[8] || null
+                    comentario: row[6] || '',
+                    estado: row[7] || '',
+                    ubicacionDestino: row[8] || null,
+                    nuevaVariante: row[9] || null
                 });
             }
         }
 
         async function guardarReclasificacionSheets() {
             const valores = [
-                ['id', 'ordenId', 'varianteOriginal', 'ubicacionOriginal', 'cantidad', 'motivo', 'estado', 'ubicacionDestino', 'nuevaVariante'],
+                ['id', 'ordenId', 'varianteOriginal', 'ubicacionOriginal', 'cantidad', 'motivo', 'comentario', 'estado', 'ubicacionDestino', 'nuevaVariante'],
                 ...itemsReclasificacion.map(i => [
                     i.id, i.ordenId, i.varianteOriginal, i.ubicacionOriginal || '', i.cantidad,
-                    i.motivo, i.estado, i.ubicacionDestino || '', i.nuevaVariante || ''
+                    i.motivo, i.comentario || '', i.estado, i.ubicacionDestino || '', i.nuevaVariante || ''
                 ])
             ];
             await escribirHoja('reclasificacion', valores);
@@ -2039,8 +2058,9 @@
             const ubicacion = document.getElementById('ubicacionObservacion').value.trim().toUpperCase();
             const cantidad = parseInt(document.getElementById('cantidadRechazar').value);
             const motivo = document.getElementById('motivoRechazo').value;
+            const comentario = document.getElementById('comentarioRechazo').value.trim();
 
-            if (!variante || !ubicacion || !cantidad || !motivo) {
+            if (!variante || !ubicacion || !cantidad || !motivo || !comentario) {
                 mostrarToast('Completa todos los campos', 'warning');
                 return;
             }
@@ -2049,7 +2069,7 @@
             if (!orden) return;
 
             if (!orden.observaciones) orden.observaciones = [];
-            orden.observaciones.push({ variante, ubicacion, cantidad, motivo });
+            orden.observaciones.push({ variante, ubicacion, cantidad, motivo, comentario });
             orden.prendasRechazadas += cantidad;
 
             const reclasId = 'RECLA-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5);
@@ -2060,6 +2080,7 @@
                 ubicacionOriginal: ubicacion,
                 cantidad,
                 motivo,
+                comentario,
                 estado: 'Pendiente',
                 ubicacionDestino: motivo === 'mal_estado' ? '191' : null,
                 nuevaVariante: null
@@ -2076,6 +2097,28 @@
             document.getElementById('ubicacionObservacion').value = '';
             document.getElementById('cantidadRechazar').value = '';
             document.getElementById('motivoRechazo').value = '';
+            document.getElementById('comentarioRechazo').value = '';
+        }
+
+        function verComentarioReclasificacion(itemId) {
+            const item = itemsReclasificacion.find(i => i.id === itemId);
+            if (!item) return;
+            
+            document.getElementById('contenidoComentario').innerHTML = `
+                <div style="margin-bottom: 1rem;">
+                    <strong style="color: var(--text-secondary); font-size: 0.875rem;">ID: ${item.id}</strong>
+                </div>
+                <div style="margin-bottom: 1rem;">
+                    <strong style="color: var(--text-secondary); font-size: 0.875rem;">Variante:</strong> ${item.varianteOriginal}
+                </div>
+                <div style="margin-bottom: 1rem;">
+                    <strong style="color: var(--text-secondary); font-size: 0.875rem;">Comentario:</strong>
+                </div>
+                <div style="padding: 1rem; background: white; border-radius: 0.5rem; border-left: 4px solid var(--primary);">
+                    ${item.comentario || 'Sin comentario'}
+                </div>
+            `;
+            mostrarModal('modalVerComentario');
         }
 
         async function cerrarOrden(ordenId) {
@@ -2083,20 +2126,14 @@
             const orden = ordenes.find(o => o.id === ordenId);
             if (!orden) return;
 
-            const totalAtendido = orden.hojaPacking.reduce((sum, row) => {
-                let totalFila = 0;
-                TIENDAS_LUKERS.forEach(tienda => {
-                    totalFila += row[tienda] || 0;
-                });
-                return sum + totalFila;
-            }, 0);
+            const totalAtendido = orden.unidadesEncontradas - orden.prendasRechazadas;
 
             orden.totalAtendido = totalAtendido;
             orden.estado = 'Completada';
             orden.fechaCierre = new Date();
             await guardarOrdenesSheets();
 
-            mostrarToast('Orden cerrada exitosamente', 'success');
+            mostrarToast(`Orden cerrada exitosamente. Total Atendido: ${totalAtendido} unidades`, 'success');
             renderizarOrdenes();
             renderizarPacking();
             renderizarPicking();
@@ -2146,6 +2183,13 @@
                         <td>${item.ubicacionOriginal || 'N/A'}</td>
                         <td>${motivoTexto}</td>
                         <td>${item.cantidad}</td>
+                        <td style="text-align: center;">
+                            <button class="icon-btn" style="background: #3b82f6; color: white;" onclick="verComentarioReclasificacion('${item.id}')" title="Ver comentario">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                                </svg>
+                            </button>
+                        </td>
                         <td><span class="badge badge-${colorEstado}">${item.estado}</span></td>
                         <td>
                             ${item.estado === 'Pendiente' ? 
@@ -2160,7 +2204,7 @@
             if (itemsFiltrados.length === 0) {
                 document.getElementById('reclasificacionTableBody').innerHTML = `
                     <tr>
-                        <td colspan="8" style="text-align: center; padding: 2rem; color: var(--text-secondary);">
+                        <td colspan="9" style="text-align: center; padding: 2rem; color: var(--text-secondary);">
                             No se encontraron registros
                         </td>
                     </tr>
