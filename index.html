@@ -273,6 +273,18 @@
                 <div class="view-section" id="view-reclasificacion">
                     <div class="card">
                         <h3 class="card-title">Reclasificación de Productos</h3>
+                        <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem; align-items: center; flex-wrap: wrap;">
+                            <div class="form-group" style="margin: 0; flex: 1; min-width: 250px;">
+                                <input type="text" class="form-control" placeholder="Buscar por ID, Orden, Variante..." id="buscarReclasificacion" oninput="debounceSearchReclasificacion()">
+                            </div>
+                            <div class="form-group" style="margin: 0; min-width: 200px;">
+                                <select class="form-control" id="filtroEstadoReclasificacion" onchange="renderizarReclasificacion()">
+                                    <option value="">Todos los estados</option>
+                                    <option value="Pendiente">Pendiente</option>
+                                    <option value="Completada">Completada</option>
+                                </select>
+                            </div>
+                        </div>
                         <div class="table-container">
                             <table class="table">
                                 <thead>
@@ -280,6 +292,7 @@
                                         <th>ID</th>
                                         <th>Orden</th>
                                         <th>Variante Original</th>
+                                        <th>Ubicación Original</th>
                                         <th>Motivo</th>
                                         <th>Cantidad</th>
                                         <th>Estado</th>
@@ -410,15 +423,19 @@
             </div>
             <input type="hidden" id="ordenIdObservaciones">
             <div class="form-group">
-                <label class="form-label">Variante</label>
+                <label class="form-label">Variante *</label>
                 <input type="text" class="form-control" id="varianteObservacion" required>
             </div>
             <div class="form-group">
-                <label class="form-label">Cantidad a Rechazar</label>
+                <label class="form-label">Ubicación *</label>
+                <input type="text" class="form-control" id="ubicacionObservacion" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Cantidad a Rechazar *</label>
                 <input type="number" class="form-control" id="cantidadRechazar" min="1" required>
             </div>
             <div class="form-group">
-                <label class="form-label">Motivo de Rechazo</label>
+                <label class="form-label">Motivo de Rechazo *</label>
                 <select class="form-control" id="motivoRechazo" required>
                     <option value="">Seleccionar motivo</option>
                     <option value="mal_estado">Mal Estado</option>
@@ -554,9 +571,9 @@
         let paginaInventario = 1;
         let paginaProductosSystem = 1;
         const ITEMS_POR_PAGINA = 100;
-        let searchTimeout = null;
-        let searchProductosTimeout = null;
         let searchPickingTimeout = null;
+        let searchProductosTimeout = null;
+        let searchReclasificacionTimeout = null;
         let detallesPickingCompletos = [];
 
         function gapiLoaded() {
@@ -835,20 +852,21 @@
                     id: row[0] || '',
                     ordenId: row[1] || '',
                     varianteOriginal: row[2] || '',
-                    cantidad: parseInt(row[3]) || 0,
-                    motivo: row[4] || '',
-                    estado: row[5] || '',
-                    ubicacionDestino: row[6] || null,
-                    nuevaVariante: row[7] || null
+                    ubicacionOriginal: row[3] || '',
+                    cantidad: parseInt(row[4]) || 0,
+                    motivo: row[5] || '',
+                    estado: row[6] || '',
+                    ubicacionDestino: row[7] || null,
+                    nuevaVariante: row[8] || null
                 });
             }
         }
 
         async function guardarReclasificacionSheets() {
             const valores = [
-                ['id', 'ordenId', 'varianteOriginal', 'cantidad', 'motivo', 'estado', 'ubicacionDestino', 'nuevaVariante'],
+                ['id', 'ordenId', 'varianteOriginal', 'ubicacionOriginal', 'cantidad', 'motivo', 'estado', 'ubicacionDestino', 'nuevaVariante'],
                 ...itemsReclasificacion.map(i => [
-                    i.id, i.ordenId, i.varianteOriginal, i.cantidad,
+                    i.id, i.ordenId, i.varianteOriginal, i.ubicacionOriginal || '', i.cantidad,
                     i.motivo, i.estado, i.ubicacionDestino || '', i.nuevaVariante || ''
                 ])
             ];
@@ -2017,10 +2035,11 @@
         function registrarObservacionPacking() {
             const ordenId = document.getElementById('ordenIdObservaciones').value;
             const variante = document.getElementById('varianteObservacion').value.trim();
+            const ubicacion = document.getElementById('ubicacionObservacion').value.trim().toUpperCase();
             const cantidad = parseInt(document.getElementById('cantidadRechazar').value);
             const motivo = document.getElementById('motivoRechazo').value;
 
-            if (!variante || !cantidad || !motivo) {
+            if (!variante || !ubicacion || !cantidad || !motivo) {
                 mostrarToast('Completa todos los campos', 'warning');
                 return;
             }
@@ -2029,7 +2048,7 @@
             if (!orden) return;
 
             if (!orden.observaciones) orden.observaciones = [];
-            orden.observaciones.push({ variante, cantidad, motivo });
+            orden.observaciones.push({ variante, ubicacion, cantidad, motivo });
             orden.prendasRechazadas += cantidad;
 
             const reclasId = 'RECLA-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5);
@@ -2037,6 +2056,7 @@
                 id: reclasId,
                 ordenId,
                 varianteOriginal: variante,
+                ubicacionOriginal: ubicacion,
                 cantidad,
                 motivo,
                 estado: 'Pendiente',
@@ -2052,6 +2072,7 @@
             renderizarReclasificacion();
 
             document.getElementById('varianteObservacion').value = '';
+            document.getElementById('ubicacionObservacion').value = '';
             document.getElementById('cantidadRechazar').value = '';
             document.getElementById('motivoRechazo').value = '';
         }
@@ -2081,8 +2102,33 @@
             actualizarDashboard();
         }
 
+        function debounceSearchReclasificacion() {
+            clearTimeout(searchReclasificacionTimeout);
+            searchReclasificacionTimeout = setTimeout(() => {
+                renderizarReclasificacion();
+            }, 300);
+        }
+
         function renderizarReclasificacion() {
-            document.getElementById('reclasificacionTableBody').innerHTML = itemsReclasificacion.map(item => {
+            const busqueda = document.getElementById('buscarReclasificacion')?.value.toLowerCase() || '';
+            const filtroEstado = document.getElementById('filtroEstadoReclasificacion')?.value || '';
+            
+            let itemsFiltrados = itemsReclasificacion;
+            
+            if (filtroEstado) {
+                itemsFiltrados = itemsFiltrados.filter(item => item.estado === filtroEstado);
+            }
+            
+            if (busqueda) {
+                itemsFiltrados = itemsFiltrados.filter(item => 
+                    item.id.toLowerCase().includes(busqueda) ||
+                    item.ordenId.toLowerCase().includes(busqueda) ||
+                    item.varianteOriginal.toLowerCase().includes(busqueda) ||
+                    (item.ubicacionOriginal && item.ubicacionOriginal.toLowerCase().includes(busqueda))
+                );
+            }
+            
+            document.getElementById('reclasificacionTableBody').innerHTML = itemsFiltrados.map(item => {
                 const colorEstado = item.estado === 'Completada' ? 'green' : 'yellow';
                 const motivoTexto = {
                     'mal_estado': 'Mal Estado',
@@ -2096,6 +2142,7 @@
                         <td>${item.id}</td>
                         <td>${item.ordenId}</td>
                         <td><strong>${item.varianteOriginal}</strong></td>
+                        <td>${item.ubicacionOriginal || 'N/A'}</td>
                         <td>${motivoTexto}</td>
                         <td>${item.cantidad}</td>
                         <td><span class="badge badge-${colorEstado}">${item.estado}</span></td>
@@ -2108,6 +2155,16 @@
                     </tr>
                 `;
             }).join('');
+            
+            if (itemsFiltrados.length === 0) {
+                document.getElementById('reclasificacionTableBody').innerHTML = `
+                    <tr>
+                        <td colspan="8" style="text-align: center; padding: 2rem; color: var(--text-secondary);">
+                            No se encontraron registros
+                        </td>
+                    </tr>
+                `;
+            }
         }
 
         function abrirModalReclasificar(itemId) {
