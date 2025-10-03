@@ -92,6 +92,8 @@
         .orden-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
         .icon-btn { display: inline-flex; align-items: center; justify-content: center; padding: 0.5rem; border-radius: 0.375rem; border: none; cursor: pointer; transition: all 0.2s; }
         .icon-btn:hover { opacity: 0.8; transform: translateY(-1px); }
+        .search-box { width: 100%; max-width: 400px; margin-bottom: 1rem; }
+        .modal-search-box { width: 100%; margin-bottom: 1rem; }
     </style>
 </head>
 <body>
@@ -237,7 +239,8 @@
                                         <th>ID Orden</th>
                                         <th>Nombre</th>
                                         <th>Fecha y Hora Creación</th>
-                                        <th>Total Unidades</th>
+                                        <th>Total Solicitado</th>
+                                        <th>Total Atendido</th>
                                         <th>Estado</th>
                                         <th>Progreso</th>
                                         <th>Acciones</th>
@@ -252,6 +255,9 @@
                 <div class="view-section" id="view-picking">
                     <div class="card">
                         <h3 class="card-title">Estación de Picking</h3>
+                        <div class="form-group search-box">
+                            <input type="text" class="form-control" placeholder="Buscar órdenes..." id="buscarPicking" oninput="debounceSearchPicking()">
+                        </div>
                         <div id="pickingOrdenesContainer"></div>
                     </div>
                 </div>
@@ -484,6 +490,9 @@
                 <button onclick="cerrarModal('modalDetallesPicking')" style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">×</button>
             </div>
             <div id="detallesPickingResumen" style="margin-bottom: 1.5rem;"></div>
+            <div class="form-group modal-search-box">
+                <input type="text" class="form-control" placeholder="Buscar en detalles..." id="buscarDetallesPicking" oninput="filtrarDetallesPicking()">
+            </div>
             <div class="table-container">
                 <table class="table">
                     <thead>
@@ -546,6 +555,8 @@
         const ITEMS_POR_PAGINA = 100;
         let searchTimeout = null;
         let searchProductosTimeout = null;
+        let searchPickingTimeout = null;
+        let detallesPickingCompletos = [];
 
         function gapiLoaded() {
             gapi.load('client', initializeGapiClient);
@@ -786,7 +797,8 @@
                         distribucionAjustada: row[11] === 'true',
                         observaciones: JSON.parse(row[12] || 'null'),
                         prendasRechazadas: parseInt(row[13]) || 0,
-                        fechaCierre: row[14] ? new Date(row[14]) : null
+                        fechaCierre: row[14] ? new Date(row[14]) : null,
+                        totalAtendido: parseInt(row[15]) || 0
                     });
                 } catch (e) {
                     console.error('Error al parsear orden:', e);
@@ -798,14 +810,15 @@
             const valores = [
                 ['id', 'nombre', 'fecha', 'estado', 'totalUnidades', 'items', 'hojaRutaPicking', 'hojaPacking', 
                  'cantidadesEncontradas', 'unidadesEncontradas', 'unidadesFaltantes', 
-                 'distribucionAjustada', 'observaciones', 'prendasRechazadas', 'fechaCierre'],
+                 'distribucionAjustada', 'observaciones', 'prendasRechazadas', 'fechaCierre', 'totalAtendido'],
                 ...ordenes.map(o => [
                     o.id, o.nombre || '', o.fecha.toISOString(), o.estado, o.totalUnidades,
                     JSON.stringify(o.items || []), JSON.stringify(o.hojaRutaPicking || []),
                     JSON.stringify(o.hojaPacking || []), JSON.stringify(o.cantidadesEncontradas || null),
                     o.unidadesEncontradas || 0, o.unidadesFaltantes || 0,
                     o.distribucionAjustada || false, JSON.stringify(o.observaciones || null),
-                    o.prendasRechazadas || 0, o.fechaCierre ? o.fechaCierre.toISOString() : ''
+                    o.prendasRechazadas || 0, o.fechaCierre ? o.fechaCierre.toISOString() : '',
+                    o.totalAtendido || 0
                 ])
             ];
             await escribirHoja('ordenes', valores);
@@ -1294,6 +1307,40 @@
             }
         }
 
+        function distribuirProporcional(unidadesEncontradas, distribucionOriginal, totalSolicitado) {
+            const distribucion = {};
+            const restos = [];
+            let totalAsignado = 0;
+
+            TIENDAS_LUKERS.forEach(tienda => {
+                const solicitado = distribucionOriginal[tienda] || 0;
+                if (solicitado > 0) {
+                    const proporcion = unidadesEncontradas * solicitado / totalSolicitado;
+                    const base = Math.floor(proporcion);
+                    const resto = proporcion - base;
+                    
+                    distribucion[tienda] = base;
+                    totalAsignado += base;
+                    
+                    if (resto > 0) {
+                        restos.push({ tienda, resto });
+                    }
+                }
+            });
+
+            const sobrante = unidadesEncontradas - totalAsignado;
+            
+            if (sobrante > 0) {
+                restos.sort((a, b) => b.resto - a.resto);
+                
+                for (let i = 0; i < sobrante && i < restos.length; i++) {
+                    distribucion[restos[i].tienda]++;
+                }
+            }
+
+            return distribucion;
+        }
+
         async function procesarOrden(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -1402,7 +1449,8 @@
                         distribucionAjustada: false,
                         observaciones: null,
                         prendasRechazadas: 0,
-                        fechaCierre: null
+                        fechaCierre: null,
+                        totalAtendido: 0
                     };
 
                     ordenes.push(orden);
@@ -1442,6 +1490,7 @@
 
                 const puedeEditar = orden.estado === 'Pendiente Picking';
                 const nombreOrden = orden.nombre && orden.nombre.trim() !== '' ? orden.nombre : 'Sin nombre';
+                const totalAtendido = orden.estado === 'Completada' ? orden.totalAtendido : '-';
 
                 return `
                     <tr>
@@ -1449,11 +1498,12 @@
                         <td><strong style="color: var(--primary);">${nombreOrden}</strong></td>
                         <td>${fechaHora}</td>
                         <td>${orden.totalUnidades}</td>
+                        <td><strong style="color: var(--success);">${totalAtendido}</strong></td>
                         <td><span class="badge badge-${colorEstado}">${orden.estado}</span></td>
                         <td><div class="progress-bar"><div class="progress-fill" style="width: ${progreso}%;"></div></div></td>
                         <td style="white-space: nowrap;">
                             <button class="btn btn-outline" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" onclick="descargarHojaPicking('${orden.id}')">📥 Picking</button>
-                            ${orden.estado === 'Pendiente Packing' ? `<button class="btn btn-outline" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" onclick="descargarHojaPacking('${orden.id}')">📥 Packing</button>` : ''}
+                            ${orden.estado === 'Pendiente Packing' || orden.estado === 'Completada' ? `<button class="btn btn-outline" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" onclick="descargarHojaPacking('${orden.id}')">📥 Packing</button>` : ''}
                             ${puedeEditar ? `<button class="btn btn-warning" style="padding: 0.25rem 0.5rem; font-size: 1rem;" onclick="editarOrden('${orden.id}')" title="Editar">✏️</button>` : ''}
                             ${puedeEditar ? `<button class="btn btn-danger" style="padding: 0.25rem 0.5rem; font-size: 1rem;" onclick="eliminarOrden('${orden.id}')" title="Eliminar">🗑️</button>` : ''}
                         </td>
@@ -1529,23 +1579,66 @@
             })));
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, 'Hoja Ruta Picking');
-            XLSX.writeFile(wb, `${ordenId}picking.xlsx`);
+            XLSX.writeFile(wb, `${ordenId}-picking.xlsx`);
             mostrarToast('Hoja de picking descargada', 'success');
         }
 
         function descargarHojaPacking(ordenId) {
             const orden = ordenes.find(o => o.id === ordenId);
             if (!orden || !orden.hojaPacking.length) return;
-            const ws = XLSX.utils.json_to_sheet(orden.hojaPacking);
+            
+            const hojaExcel = orden.hojaPacking.map(row => {
+                const excelRow = {
+                    'Variante': row.variante,
+                    'UBICACIÓN': row.ubicacion,
+                    'Encontrado': row.encontrado,
+                    'Marca': row.marca,
+                    'Código Comercial': row.codigoComercial,
+                    'Descripción': row.descripcion,
+                    'Talla': row.talla,
+                    'PVP': row.pvp
+                };
+                
+                TIENDAS_LUKERS.forEach(tienda => {
+                    excelRow[tienda] = row[tienda] || 0;
+                });
+                
+                return excelRow;
+            });
+            
+            const ws = XLSX.utils.json_to_sheet(hojaExcel);
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, 'Hoja Packing');
             XLSX.writeFile(wb, `${ordenId}-packing.xlsx`);
             mostrarToast('Hoja de packing descargada', 'success');
         }
 
+        function debounceSearchPicking() {
+            clearTimeout(searchPickingTimeout);
+            searchPickingTimeout = setTimeout(() => {
+                renderizarPicking();
+            }, 300);
+        }
+
         function renderizarPicking() {
-            const ordenesActivas = ordenes.filter(o => o.estado === 'Pendiente Picking' || o.estado === 'En Picking');
-            const ordenesHistorial = ordenes.filter(o => o.estado === 'Pendiente Packing' || o.estado === 'Completada');
+            const busqueda = document.getElementById('buscarPicking')?.value.toLowerCase() || '';
+            
+            let ordenesActivas = ordenes.filter(o => o.estado === 'Pendiente Picking' || o.estado === 'En Picking');
+            let ordenesHistorial = ordenes.filter(o => o.estado === 'Pendiente Packing' || o.estado === 'Completada');
+            
+            if (busqueda) {
+                ordenesActivas = ordenesActivas.filter(o => 
+                    o.id.toLowerCase().includes(busqueda) ||
+                    (o.nombre && o.nombre.toLowerCase().includes(busqueda))
+                );
+                ordenesHistorial = ordenesHistorial.filter(o => 
+                    o.id.toLowerCase().includes(busqueda) ||
+                    (o.nombre && o.nombre.toLowerCase().includes(busqueda))
+                );
+            }
+            
+            ordenesActivas.sort((a, b) => b.fecha - a.fecha);
+            ordenesHistorial.sort((a, b) => b.fecha - a.fecha);
             
             let html = '';
             
@@ -1657,38 +1750,81 @@
                 </div>
             `;
 
-            const detalles = [];
-            for (const item of orden.hojaRutaPicking) {
-                const key = `${item.variante}|${item.ubicacion}`;
-                const encontrado = orden.cantidadesEncontradas?.[key] || 0;
-                const faltante = item.total - encontrado;
+            detallesPickingCompletos = [];
+            
+            for (const item of orden.items) {
+                const distribucionOriginal = item.distribucion;
                 
-                let estado = '';
-                let colorEstado = '';
-                if (encontrado === 0) {
-                    estado = '❌ No encontrado';
-                    colorEstado = 'var(--danger)';
-                } else if (faltante > 0) {
-                    estado = `⚠️ Faltante ${faltante}`;
-                    colorEstado = 'var(--warning)';
+                if (item.ubicaciones.length === 0) {
+                    let estado = '⚠️ Sin stock físico';
+                    let colorEstado = 'var(--danger)';
+                    
+                    const prodSystem = productosSystem.find(p => p.variante === item.variante) || {};
+                    
+                    detallesPickingCompletos.push({
+                        variante: item.variante,
+                        ubicacion: 'Sin ubicación',
+                        descripcion: prodSystem.descripcion || 'Sin descripción',
+                        talla: prodSystem.talla || 'N/A',
+                        solicitado: item.cantidadSolicitada,
+                        encontrado: 0,
+                        estado: estado,
+                        colorEstado: colorEstado
+                    });
                 } else {
-                    estado = '✓ Completo';
-                    colorEstado = 'var(--success)';
-                }
+                    for (const ub of item.ubicaciones) {
+                        const key = `${item.variante}|${ub.ubicacion}`;
+                        const encontrado = orden.cantidadesEncontradas?.[key] || 0;
+                        const faltante = ub.cantidad - encontrado;
+                        
+                        let estado = '';
+                        let colorEstado = '';
+                        if (encontrado === 0) {
+                            estado = '❌ No encontrado';
+                            colorEstado = 'var(--danger)';
+                        } else if (faltante > 0) {
+                            estado = `⚠️ Faltante ${faltante}`;
+                            colorEstado = 'var(--warning)';
+                        } else {
+                            estado = '✓ Completo';
+                            colorEstado = 'var(--success)';
+                        }
 
-                detalles.push({
-                    variante: item.variante,
-                    ubicacion: item.ubicacion,
-                    descripcion: item.descripcion || 'Sin descripción',
-                    talla: item.talla || 'N/A',
-                    solicitado: item.total,
-                    encontrado: encontrado,
-                    estado: estado,
-                    colorEstado: colorEstado
-                });
+                        const prodSystem = productosSystem.find(p => p.variante === item.variante) || {};
+                        
+                        detallesPickingCompletos.push({
+                            variante: item.variante,
+                            ubicacion: ub.ubicacion,
+                            descripcion: prodSystem.descripcion || 'Sin descripción',
+                            talla: prodSystem.talla || 'N/A',
+                            solicitado: ub.cantidad,
+                            encontrado: encontrado,
+                            estado: estado,
+                            colorEstado: colorEstado
+                        });
+                    }
+                }
             }
 
-            document.getElementById('detallesPickingTableBody').innerHTML = detalles.map(det => `
+            filtrarDetallesPicking();
+            mostrarModal('modalDetallesPicking');
+        }
+
+        function filtrarDetallesPicking() {
+            const busqueda = document.getElementById('buscarDetallesPicking')?.value.toLowerCase() || '';
+            
+            let detallesFiltrados = detallesPickingCompletos;
+            
+            if (busqueda) {
+                detallesFiltrados = detallesPickingCompletos.filter(det => 
+                    det.variante.toLowerCase().includes(busqueda) ||
+                    det.ubicacion.toLowerCase().includes(busqueda) ||
+                    det.descripcion.toLowerCase().includes(busqueda) ||
+                    det.talla.toLowerCase().includes(busqueda)
+                );
+            }
+
+            document.getElementById('detallesPickingTableBody').innerHTML = detallesFiltrados.map(det => `
                 <tr style="background: ${det.encontrado < det.solicitado ? 'rgba(239, 68, 68, 0.05)' : 'transparent'};">
                     <td><strong>${det.variante}</strong></td>
                     <td>${det.ubicacion}</td>
@@ -1699,8 +1835,6 @@
                     <td style="color: ${det.colorEstado}; font-weight: 600;">${det.estado}</td>
                 </tr>
             `).join('');
-
-            mostrarModal('modalDetallesPicking');
         }
 
         function abrirModalConfirmarCantidades(ordenId) {
@@ -1752,10 +1886,6 @@
                     orden.unidadesEncontradas = totalEncontradas;
                     orden.unidadesFaltantes = orden.totalUnidades - totalEncontradas;
 
-                    if (orden.unidadesFaltantes > 0) {
-                        ajustarDistribucion(orden);
-                    }
-
                     orden.estado = 'Pendiente Packing';
                     generarHojaPacking(orden);
 
@@ -1779,35 +1909,43 @@
             reader.readAsArrayBuffer(file);
         }
 
-        function ajustarDistribucion(orden) {
-            const factorReduccion = orden.unidadesEncontradas / orden.totalUnidades;
-            for (const item of orden.items) {
-                const nuevaDistribucion = {};
-                TIENDAS_LUKERS.forEach(tienda => {
-                    if (item.distribucion[tienda]) {
-                        nuevaDistribucion[tienda] = Math.floor(item.distribucion[tienda] * factorReduccion);
-                    }
-                });
-                item.distribucionAjustada = nuevaDistribucion;
-            }
-            orden.distribucionAjustada = true;
-        }
-
         function generarHojaPacking(orden) {
             const hojaPacking = [];
+            
             for (const item of orden.items) {
-                const dist = item.distribucionAjustada || item.distribucion;
-                const prodSystem = productosSystem.find(p => p.variante === item.variante) || {};
-                hojaPacking.push({
-                    variante: item.variante,
-                    marca: prodSystem.marca || '',
-                    codigoComercial: prodSystem.codigoComercial || '',
-                    descripcion: prodSystem.descripcion || '',
-                    talla: prodSystem.talla || '',
-                    pvp: prodSystem.pvp || 0,
-                    ...dist
+                const ubicacionesEncontradas = item.ubicaciones.filter(ub => {
+                    const key = `${item.variante}|${ub.ubicacion}`;
+                    const encontrado = orden.cantidadesEncontradas[key] || 0;
+                    return encontrado > 0;
                 });
+                
+                for (const ub of ubicacionesEncontradas) {
+                    const key = `${item.variante}|${ub.ubicacion}`;
+                    const encontrado = orden.cantidadesEncontradas[key];
+                    
+                    const distribucionUbicacion = distribuirProporcional(
+                        encontrado,
+                        item.distribucion,
+                        item.cantidadSolicitada
+                    );
+                    
+                    const prodSystem = productosSystem.find(p => p.variante === item.variante) || {};
+                    
+                    hojaPacking.push({
+                        variante: item.variante,
+                        ubicacion: ub.ubicacion,
+                        encontrado: encontrado,
+                        marca: prodSystem.marca || '',
+                        codigoComercial: prodSystem.codigoComercial || '',
+                        descripcion: prodSystem.descripcion || '',
+                        talla: prodSystem.talla || '',
+                        pvp: prodSystem.pvp || 0,
+                        ...distribucionUbicacion
+                    });
+                }
             }
+            
+            hojaPacking.sort((a, b) => a.ubicacion.localeCompare(b.ubicacion));
             orden.hojaPacking = hojaPacking;
         }
 
@@ -1894,6 +2032,15 @@
             const orden = ordenes.find(o => o.id === ordenId);
             if (!orden) return;
 
+            const totalAtendido = orden.hojaPacking.reduce((sum, row) => {
+                let totalFila = 0;
+                TIENDAS_LUKERS.forEach(tienda => {
+                    totalFila += row[tienda] || 0;
+                });
+                return sum + totalFila;
+            }, 0);
+
+            orden.totalAtendido = totalAtendido;
             orden.estado = 'Completada';
             orden.fechaCierre = new Date();
             await guardarOrdenesSheets();
@@ -1901,6 +2048,7 @@
             mostrarToast('Orden cerrada exitosamente', 'success');
             renderizarOrdenes();
             renderizarPacking();
+            renderizarPicking();
             actualizarDashboard();
         }
 
