@@ -477,6 +477,32 @@
         </div>
     </div>
 
+    <div class="modal-overlay" id="modalDetallesPicking">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Detalles de Picking</h3>
+                <button onclick="cerrarModal('modalDetallesPicking')" style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">×</button>
+            </div>
+            <div id="detallesPickingResumen" style="margin-bottom: 1.5rem;"></div>
+            <div class="table-container">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Variante</th>
+                            <th>Ubicación</th>
+                            <th>Descripción</th>
+                            <th>Talla</th>
+                            <th>Solicitado</th>
+                            <th>Encontrado</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody id="detallesPickingTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
     <div class="modal-overlay" id="loadingOverlay">
         <div style="background: var(--bg-card); padding: 3rem; border-radius: 1rem; text-align: center; min-width: 400px;">
             <div class="loading-spinner"></div>
@@ -865,7 +891,6 @@
             document.getElementById('statOrdenes').textContent = ordenes.filter(o => o.estado !== 'Completada').length;
         }
 
-        // INVENTARIO CON ICONOS SVG
         function renderizarInventario() {
             const busqueda = document.getElementById('buscarInventario')?.value.toLowerCase() || '';
             const filtrado = inventario.filter(item => 
@@ -1066,7 +1091,7 @@
 
                     for (const row of jsonData) {
                         const variante = String(row.Variante || row.variante || '').trim();
-                        const ubicacion = String(row.Ubicacion || row.ubicacion || '').trim().toUpperCase();
+                        const ubicacion = String(row.Ubicacion || row.ubicacion || row['Ubicación'] || '').trim().toUpperCase();
                         const stockFisico = parseInt(row['Stock Físico'] || row.Stock || 0);
 
                         if (!variante || !ubicacion) continue;
@@ -1161,7 +1186,6 @@
             mostrarToast('Inventario exportado', 'success');
         }
 
-        // PRODUCTOS SYSTEM CON BÚSQUEDA
         function renderizarProductosSystem() {
             const busqueda = document.getElementById('buscarProductosSystem')?.value.toLowerCase() || '';
             const filtrado = productosSystem.filter(prod => 
@@ -1270,7 +1294,6 @@
             }
         }
 
-        // ÓRDENES CON EDITAR/ELIMINAR
         async function procesarOrden(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -1496,10 +1519,17 @@
         function descargarHojaPicking(ordenId) {
             const orden = ordenes.find(o => o.id === ordenId);
             if (!orden) return;
-            const ws = XLSX.utils.json_to_sheet(orden.hojaRutaPicking);
+            const ws = XLSX.utils.json_to_sheet(orden.hojaRutaPicking.map(row => ({
+                'Variante': row.variante,
+                'Ubicación': row.ubicacion,
+                'Descripción': row.descripcion,
+                'Marca': row.marca,
+                'Talla': row.talla,
+                'Cantidad': row.total
+            })));
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, 'Hoja Ruta Picking');
-            XLSX.writeFile(wb, `${ordenId}-picking.xlsx`);
+            XLSX.writeFile(wb, `${ordenId}picking.xlsx`);
             mostrarToast('Hoja de picking descargada', 'success');
         }
 
@@ -1513,12 +1543,17 @@
             mostrarToast('Hoja de packing descargada', 'success');
         }
 
-        // PICKING - RESTA DIRECTA DEL STOCK FÍSICO
         function renderizarPicking() {
-            const ordenesPicking = ordenes.filter(o => o.estado === 'Pendiente Picking' || o.estado === 'En Picking');
-            document.getElementById('pickingOrdenesContainer').innerHTML = ordenesPicking.length === 0 ? 
-                '<p style="color: var(--text-secondary);">No hay órdenes pendientes de picking</p>' :
-                ordenesPicking.map(orden => {
+            const ordenesActivas = ordenes.filter(o => o.estado === 'Pendiente Picking' || o.estado === 'En Picking');
+            const ordenesHistorial = ordenes.filter(o => o.estado === 'Pendiente Packing' || o.estado === 'Completada');
+            
+            let html = '';
+            
+            html += '<h3 style="margin-bottom: 1rem; color: var(--primary);">📋 Órdenes Activas</h3>';
+            if (ordenesActivas.length === 0) {
+                html += '<p style="color: var(--text-secondary); margin-bottom: 2rem;">No hay órdenes pendientes de picking</p>';
+            } else {
+                html += ordenesActivas.map(orden => {
                     const fechaHora = orden.fecha.toLocaleString('es-PE', {
                         day: '2-digit', month: '2-digit', year: 'numeric',
                         hour: '2-digit', minute: '2-digit', hour12: true
@@ -1535,12 +1570,137 @@
                             <p>Total Unidades: <strong>${orden.totalUnidades}</strong></p>
                             <p>Fecha y Hora: ${fechaHora}</p>
                             <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
-                                <button class="btn btn-primary" onclick="descargarHojaPicking('${orden.id}')">Descargar Hoja Ruta</button>
-                                <button class="btn btn-success" onclick="abrirModalConfirmarCantidades('${orden.id}')">Confirmar Cantidades</button>
+                                <button class="btn btn-primary" onclick="descargarHojaPicking('${orden.id}')">📥 Descargar Hoja Ruta</button>
+                                <button class="btn btn-success" onclick="abrirModalConfirmarCantidades('${orden.id}')">✓ Confirmar Cantidades</button>
                             </div>
                         </div>
                     `;
                 }).join('');
+            }
+            
+            html += '<h3 style="margin-top: 2rem; margin-bottom: 1rem; color: var(--text-secondary);">📜 Historial de Picking</h3>';
+            if (ordenesHistorial.length === 0) {
+                html += '<p style="color: var(--text-secondary);">No hay historial disponible</p>';
+            } else {
+                html += ordenesHistorial.map(orden => {
+                    const fechaHora = orden.fecha.toLocaleString('es-PE', {
+                        day: '2-digit', month: '2-digit', year: 'numeric',
+                        hour: '2-digit', minute: '2-digit', hour12: true
+                    });
+                    
+                    const estadoBadge = orden.estado === 'Completada' ? 'green' : 'yellow';
+                    const porcentajeEncontrado = orden.totalUnidades > 0 
+                        ? Math.round((orden.unidadesEncontradas / orden.totalUnidades) * 100) 
+                        : 0;
+                    
+                    return `
+                        <div class="orden-card">
+                            <div class="orden-header">
+                                <div>
+                                    <h4>${orden.nombre || orden.id}</h4>
+                                    <p style="font-size: 0.875rem; color: var(--text-secondary); margin-top: 0.25rem;">ID: ${orden.id}</p>
+                                </div>
+                                <span class="badge badge-${estadoBadge}">${orden.estado}</span>
+                            </div>
+                            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; margin: 0.75rem 0;">
+                                <p>Solicitado: <strong>${orden.totalUnidades}</strong></p>
+                                <p>Encontrado: <strong style="color: var(--success);">${orden.unidadesEncontradas}</strong></p>
+                                <p>Faltante: <strong style="color: var(--danger);">${orden.unidadesFaltantes}</strong></p>
+                                <p>Efectividad: <strong style="color: ${porcentajeEncontrado >= 95 ? 'var(--success)' : porcentajeEncontrado >= 85 ? 'var(--warning)' : 'var(--danger)'};">${porcentajeEncontrado}%</strong></p>
+                            </div>
+                            <p style="font-size: 0.875rem; color: var(--text-secondary);">Fecha: ${fechaHora}</p>
+                            <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
+                                <button class="btn btn-outline" onclick="verDetallesPicking('${orden.id}')">👁️ Ver Detalles</button>
+                                <button class="btn btn-outline" onclick="descargarHojaPicking('${orden.id}')">📥 Descargar Hoja</button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+            
+            document.getElementById('pickingOrdenesContainer').innerHTML = html;
+        }
+
+        function verDetallesPicking(ordenId) {
+            const orden = ordenes.find(o => o.id === ordenId);
+            if (!orden) return;
+
+            const porcentajeEncontrado = orden.totalUnidades > 0 
+                ? Math.round((orden.unidadesEncontradas / orden.totalUnidades) * 100) 
+                : 0;
+            
+            const colorPorcentaje = porcentajeEncontrado >= 95 ? 'var(--success)' : 
+                                   porcentajeEncontrado >= 85 ? 'var(--warning)' : 'var(--danger)';
+
+            document.getElementById('detallesPickingResumen').innerHTML = `
+                <div style="background: var(--bg-primary); padding: 1rem; border-radius: 0.5rem;">
+                    <h4 style="margin-bottom: 0.5rem;">${orden.nombre || orden.id}</h4>
+                    <p style="font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 0.75rem;">ID: ${orden.id} | Estado: ${orden.estado}</p>
+                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem;">
+                        <div>
+                            <div style="font-size: 0.875rem; color: var(--text-secondary);">Solicitado</div>
+                            <div style="font-size: 1.5rem; font-weight: 700;">${orden.totalUnidades}</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.875rem; color: var(--text-secondary);">Encontrado</div>
+                            <div style="font-size: 1.5rem; font-weight: 700; color: var(--success);">${orden.unidadesEncontradas}</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.875rem; color: var(--text-secondary);">Faltante</div>
+                            <div style="font-size: 1.5rem; font-weight: 700; color: var(--danger);">${orden.unidadesFaltantes}</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.875rem; color: var(--text-secondary);">Efectividad</div>
+                            <div style="font-size: 1.5rem; font-weight: 700; color: ${colorPorcentaje};">${porcentajeEncontrado}%</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            const detalles = [];
+            for (const item of orden.hojaRutaPicking) {
+                const key = `${item.variante}|${item.ubicacion}`;
+                const encontrado = orden.cantidadesEncontradas?.[key] || 0;
+                const faltante = item.total - encontrado;
+                
+                let estado = '';
+                let colorEstado = '';
+                if (encontrado === 0) {
+                    estado = '❌ No encontrado';
+                    colorEstado = 'var(--danger)';
+                } else if (faltante > 0) {
+                    estado = `⚠️ Faltante ${faltante}`;
+                    colorEstado = 'var(--warning)';
+                } else {
+                    estado = '✓ Completo';
+                    colorEstado = 'var(--success)';
+                }
+
+                detalles.push({
+                    variante: item.variante,
+                    ubicacion: item.ubicacion,
+                    descripcion: item.descripcion || 'Sin descripción',
+                    talla: item.talla || 'N/A',
+                    solicitado: item.total,
+                    encontrado: encontrado,
+                    estado: estado,
+                    colorEstado: colorEstado
+                });
+            }
+
+            document.getElementById('detallesPickingTableBody').innerHTML = detalles.map(det => `
+                <tr style="background: ${det.encontrado < det.solicitado ? 'rgba(239, 68, 68, 0.05)' : 'transparent'};">
+                    <td><strong>${det.variante}</strong></td>
+                    <td>${det.ubicacion}</td>
+                    <td>${det.descripcion}</td>
+                    <td>${det.talla}</td>
+                    <td><strong>${det.solicitado}</strong></td>
+                    <td style="color: ${det.colorEstado};"><strong>${det.encontrado}</strong></td>
+                    <td style="color: ${det.colorEstado}; font-weight: 600;">${det.estado}</td>
+                </tr>
+            `).join('');
+
+            mostrarModal('modalDetallesPicking');
         }
 
         function abrirModalConfirmarCantidades(ordenId) {
@@ -1572,7 +1732,7 @@
 
                     for (const row of jsonData) {
                         const variante = String(row.Variante || row.variante || '').trim();
-                        const ubicacion = String(row.Ubicacion || row.ubicacion || '').trim().toUpperCase();
+                        const ubicacion = String(row.Ubicacion || row.ubicacion || row['Ubicación'] || '').trim().toUpperCase();
                         const encontrada = parseInt(row['Cantidad Encontrada'] || row.Encontrada || 0);
 
                         if (!variante || !ubicacion) continue;
@@ -1581,7 +1741,6 @@
                         cantidadesEncontradas[key] = encontrada;
                         totalEncontradas += encontrada;
 
-                        // RESTA DIRECTA DEL STOCK FÍSICO
                         const itemInv = inventario.find(i => i.variante === variante && i.ubicacion === ubicacion);
                         if (itemInv) {
                             itemInv.stockFisico = Math.max(0, itemInv.stockFisico - encontrada);
