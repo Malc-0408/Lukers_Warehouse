@@ -242,6 +242,7 @@
                                         <th>Fecha y Hora Creación</th>
                                         <th>Total Solicitado</th>
                                         <th>Total Atendido</th>
+                                        <th>Monto</th>
                                         <th>Estado</th>
                                         <th>Progreso</th>
                                         <th>Acciones</th>
@@ -796,17 +797,18 @@
                     talla: row[6] || '',
                     genero: row[7] || '',
                     color: row[8] || '',
-                    temporada: row[9] || ''
+                    temporada: row[9] || '',
+                    kardex: parseFloat(row[10]) || 0
                 });
             }
         }
 
         async function guardarProductosSystemSheets() {
             const valores = [
-                ['variante', 'codigoComercial', 'descripcion', 'pvp', 'stkFin', 'marca', 'talla', 'genero', 'color', 'temporada'],
+                ['variante', 'codigoComercial', 'descripcion', 'pvp', 'stkFin', 'marca', 'talla', 'genero', 'color', 'temporada', 'kardex'],
                 ...productosSystem.map(p => [
                     p.variante, p.codigoComercial, p.descripcion, p.pvp, p.stkFin,
-                    p.marca, p.talla, p.genero, p.color, p.temporada
+                    p.marca, p.talla, p.genero, p.color, p.temporada, p.kardex || 0
                 ])
             ];
             await escribirHoja('productosSystem', valores);
@@ -825,17 +827,18 @@
                         fecha: new Date(row[2]),
                         estado: row[3] || '',
                         totalUnidades: parseInt(row[4]) || 0,
-                        items: JSON.parse(row[5] || '[]'),
-                        hojaRutaPicking: JSON.parse(row[6] || '[]'),
-                        hojaPacking: JSON.parse(row[7] || '[]'),
-                        cantidadesEncontradas: JSON.parse(row[8] || 'null'),
-                        unidadesEncontradas: parseInt(row[9]) || 0,
-                        unidadesFaltantes: parseInt(row[10]) || 0,
-                        distribucionAjustada: row[11] === 'true',
-                        observaciones: JSON.parse(row[12] || 'null'),
-                        prendasRechazadas: parseInt(row[13]) || 0,
-                        fechaCierre: row[14] ? new Date(row[14]) : null,
-                        totalAtendido: parseInt(row[15]) || 0
+                        totalAtendido: parseInt(row[5]) || 0,
+                        monto: parseFloat(row[6]) || 0,
+                        items: JSON.parse(row[7] || '[]'),
+                        hojaRutaPicking: JSON.parse(row[8] || '[]'),
+                        hojaPacking: JSON.parse(row[9] || '[]'),
+                        cantidadesEncontradas: JSON.parse(row[10] || 'null'),
+                        unidadesEncontradas: parseInt(row[11]) || 0,
+                        unidadesFaltantes: parseInt(row[12]) || 0,
+                        distribucionAjustada: row[13] === 'true',
+                        observaciones: JSON.parse(row[14] || 'null'),
+                        prendasRechazadas: parseInt(row[15]) || 0,
+                        fechaCierre: row[16] ? new Date(row[16]) : null
                     });
                 } catch (e) {
                     console.error('Error al parsear orden:', e);
@@ -845,17 +848,17 @@
 
         async function guardarOrdenesSheets() {
             const valores = [
-                ['id', 'nombre', 'fecha', 'estado', 'totalUnidades', 'items', 'hojaRutaPicking', 'hojaPacking', 
+                ['id', 'nombre', 'fecha', 'estado', 'totalUnidades', 'totalAtendido', 'monto', 'items', 'hojaRutaPicking', 'hojaPacking', 
                  'cantidadesEncontradas', 'unidadesEncontradas', 'unidadesFaltantes', 
-                 'distribucionAjustada', 'observaciones', 'prendasRechazadas', 'fechaCierre', 'totalAtendido'],
+                 'distribucionAjustada', 'observaciones', 'prendasRechazadas', 'fechaCierre'],
                 ...ordenes.map(o => [
                     o.id, o.nombre || '', o.fecha.toISOString(), o.estado, o.totalUnidades,
+                    o.totalAtendido || 0, o.monto || 0,
                     JSON.stringify(o.items || []), JSON.stringify(o.hojaRutaPicking || []),
                     JSON.stringify(o.hojaPacking || []), JSON.stringify(o.cantidadesEncontradas || null),
                     o.unidadesEncontradas || 0, o.unidadesFaltantes || 0,
                     o.distribucionAjustada || false, JSON.stringify(o.observaciones || null),
-                    o.prendasRechazadas || 0, o.fechaCierre ? o.fechaCierre.toISOString() : '',
-                    o.totalAtendido || 0
+                    o.prendasRechazadas || 0, o.fechaCierre ? o.fechaCierre.toISOString() : ''
                 ])
             ];
             await escribirHoja('ordenes', valores);
@@ -1341,7 +1344,8 @@
                         talla: row.TALLA || row.talla || '',
                         genero: row.Genero || row.genero || '',
                         color: row.COLOR || row.color || '',
-                        temporada: row.TEMPORADA_MUNDO || row.temporada || ''
+                        temporada: row.TEMPORADA_MUNDO || row.temporada || '',
+                        kardex: parseFloat(row.Kardex || row.kardex || 0)
                     }));
 
                     await guardarProductosSystemSheets();
@@ -1507,6 +1511,8 @@
                         fecha: new Date(),
                         estado: 'Pendiente Picking',
                         totalUnidades,
+                        totalAtendido: 0,
+                        monto: 0,
                         items,
                         hojaRutaPicking,
                         hojaPacking: [],
@@ -1516,8 +1522,7 @@
                         distribucionAjustada: false,
                         observaciones: null,
                         prendasRechazadas: 0,
-                        fechaCierre: null,
-                        totalAtendido: 0
+                        fechaCierre: null
                     };
 
                     ordenes.push(orden);
@@ -1558,6 +1563,7 @@
                 const puedeEditar = orden.estado === 'Pendiente Picking';
                 const nombreOrden = orden.nombre && orden.nombre.trim() !== '' ? orden.nombre : 'Sin nombre';
                 const totalAtendido = orden.estado === 'Completada' ? orden.totalAtendido : '-';
+                const monto = orden.estado === 'Completada' ? `S/ ${orden.monto.toFixed(2)}` : '-';
 
                 return `
                     <tr>
@@ -1566,6 +1572,7 @@
                         <td>${fechaHora}</td>
                         <td>${orden.totalUnidades}</td>
                         <td><strong style="color: var(--success);">${totalAtendido}</strong></td>
+                        <td><strong style="color: var(--primary);">${monto}</strong></td>
                         <td><span class="badge badge-${colorEstado}">${orden.estado}</span></td>
                         <td><div class="progress-bar"><div class="progress-fill" style="width: ${progreso}%;"></div></div></td>
                         <td style="white-space: nowrap;">
@@ -2126,14 +2133,35 @@
             const orden = ordenes.find(o => o.id === ordenId);
             if (!orden) return;
 
+            // Calcular Total Atendido = Encontrado - Rechazado
             const totalAtendido = orden.unidadesEncontradas - orden.prendasRechazadas;
 
+            // Calcular Monto = suma de (cantidad_atendida_por_variante * kardex)
+            let monto = 0;
+            
+            // Recorrer hojaPacking y calcular monto
+            for (const row of orden.hojaPacking) {
+                // Sumar cantidades distribuidas a todas las tiendas para esta fila
+                let cantidadAtendida = 0;
+                TIENDAS_LUKERS.forEach(tienda => {
+                    cantidadAtendida += row[tienda] || 0;
+                });
+                
+                // Buscar kardex de esta variante
+                const productoInfo = productosSystem.find(p => p.variante === row.variante);
+                const kardex = productoInfo ? productoInfo.kardex : 0;
+                
+                // Acumular monto
+                monto += cantidadAtendida * kardex;
+            }
+
             orden.totalAtendido = totalAtendido;
+            orden.monto = monto;
             orden.estado = 'Completada';
             orden.fechaCierre = new Date();
             await guardarOrdenesSheets();
 
-            mostrarToast(`Orden cerrada exitosamente. Total Atendido: ${totalAtendido} unidades`, 'success');
+            mostrarToast(`Orden cerrada. Atendido: ${totalAtendido} unidades | Monto: S/ ${monto.toFixed(2)}`, 'success');
             renderizarOrdenes();
             renderizarPacking();
             renderizarPicking();
