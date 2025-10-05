@@ -244,7 +244,6 @@
                                         <th>Total Atendido</th>
                                         <th>Monto</th>
                                         <th>Estado</th>
-                                        <th>Progreso</th>
                                         <th>Acciones</th>
                                     </tr>
                                 </thead>
@@ -673,6 +672,8 @@
             renderizarPacking();
             renderizarReclasificacion();
             mostrarToast('Datos sincronizados desde Google Sheets', 'success');
+            
+            verificarConexionPeriodica();
         }
 
         async function leerHoja(nombreHoja, rango = 'A:Z') {
@@ -684,6 +685,9 @@
                 return response.result.values || [];
             } catch (err) {
                 console.error('Error al leer hoja:', err);
+                if (err.status === 401 || err.status === 403) {
+                    manejarDesconexion('Error de autenticación al leer datos');
+                }
                 return [];
             }
         }
@@ -703,8 +707,59 @@
                 return true;
             } catch (err) {
                 console.error('Error al escribir hoja:', err);
+                if (err.status === 401 || err.status === 403) {
+                    manejarDesconexion('Error de autenticación al guardar datos');
+                }
                 return false;
             }
+        }
+
+        function manejarDesconexion(mensaje) {
+            console.warn('Desconexión detectada:', mensaje);
+            
+            mostrarToast('Sesión expirada. Cerrando sesión...', 'warning');
+            
+            setTimeout(() => {
+                const token = gapi.client.getToken();
+                if (token !== null) {
+                    try {
+                        google.accounts.oauth2.revoke(token.access_token);
+                    } catch (e) {
+                        console.error('Error al revocar token:', e);
+                    }
+                    gapi.client.setToken('');
+                }
+                
+                localStorage.removeItem('google_access_token');
+                accessToken = null;
+                
+                inventario = [];
+                productosSystem = [];
+                ordenes = [];
+                itemsReclasificacion = [];
+                
+                document.getElementById('appContainer').classList.add('hidden');
+                document.getElementById('loginScreen').classList.remove('hidden');
+                
+                mostrarToast('Tu sesión ha expirado. Por favor, inicia sesión nuevamente.', 'info');
+            }, 1000);
+        }
+
+        function verificarConexionPeriodica() {
+            setInterval(async () => {
+                if (accessToken && !cargaMasivaEnProceso) {
+                    try {
+                        await gapi.client.sheets.spreadsheets.get({
+                            spreadsheetId: GOOGLE_CONFIG.SPREADSHEET_ID,
+                            fields: 'spreadsheetId'
+                        });
+                    } catch (err) {
+                        if (err.status === 401 || err.status === 403) {
+                            manejarDesconexion('Conexión perdida con Google Sheets');
+                        }
+                    }
+                }
+            }, 300000);
         }
 
         async function cargarDatos() {
@@ -1547,10 +1602,6 @@
 
         function renderizarOrdenes() {
             document.getElementById('ordenesTableBody').innerHTML = ordenes.map(orden => {
-                const progreso = orden.estado === 'Completada' ? 100 : 
-                                orden.estado === 'Pendiente Packing' ? 66 :
-                                orden.estado === 'En Picking' ? 33 : 0;
-                
                 const colorEstado = orden.estado === 'Completada' ? 'green' :
                                    orden.estado === 'Pendiente Packing' ? 'yellow' :
                                    orden.estado === 'En Picking' ? 'blue' : 'red';
@@ -1574,7 +1625,6 @@
                         <td><strong style="color: var(--success);">${totalAtendido}</strong></td>
                         <td><strong style="color: var(--primary);">${monto}</strong></td>
                         <td><span class="badge badge-${colorEstado}">${orden.estado}</span></td>
-                        <td><div class="progress-bar"><div class="progress-fill" style="width: ${progreso}%;"></div></div></td>
                         <td style="white-space: nowrap;">
                             <button class="btn btn-outline" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" onclick="descargarHojaPicking('${orden.id}')">📥 Picking</button>
                             ${orden.estado === 'Pendiente Packing' || orden.estado === 'Completada' ? `<button class="btn btn-outline" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" onclick="descargarHojaPacking('${orden.id}')">📥 Packing</button>` : ''}
@@ -1663,14 +1713,15 @@
             
             const hojaExcel = orden.hojaPacking.map(row => {
                 const excelRow = {
-                    'Variante': row.variante,
                     'UBICACIÓN': row.ubicacion,
-                    'Encontrado': row.encontrado,
-                    'Marca': row.marca,
                     'Código Comercial': row.codigoComercial,
+                    'Variante': row.variante,
+                    'Marca': row.marca,
                     'Descripción': row.descripcion,
                     'Talla': row.talla,
-                    'PVP': row.pvp
+                    'PVP': row.pvp,
+                    'Kardex': row.kardex || 0,
+                    'TOTAL': row.encontrado
                 };
                 
                 TIENDAS_LUKERS.forEach(tienda => {
@@ -2014,6 +2065,7 @@
                         descripcion: prodSystem.descripcion || '',
                         talla: prodSystem.talla || '',
                         pvp: prodSystem.pvp || 0,
+                        kardex: prodSystem.kardex || 0,
                         ...distribucionUbicacion
                     });
                 }
