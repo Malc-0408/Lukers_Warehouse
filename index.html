@@ -162,18 +162,30 @@
                             <div class="stat-card" style="border-left-color: #3b82f6;">
                                 <div class="stat-value" id="montoGeneroH">S/ 0.00</div>
                                 <div class="stat-label">Género H</div>
+                                <div style="margin-top: 0.5rem; font-size: 0.875rem; color: var(--text-secondary);">
+                                    <span id="cantidadGeneroH">0</span> unidades
+                                </div>
                             </div>
                             <div class="stat-card" style="border-left-color: #ec4899;">
                                 <div class="stat-value" id="montoGeneroM">S/ 0.00</div>
                                 <div class="stat-label">Género M</div>
+                                <div style="margin-top: 0.5rem; font-size: 0.875rem; color: var(--text-secondary);">
+                                    <span id="cantidadGeneroM">0</span> unidades
+                                </div>
                             </div>
                             <div class="stat-card" style="border-left-color: #f59e0b;">
                                 <div class="stat-value" id="montoGeneroInfantil">S/ 0.00</div>
                                 <div class="stat-label">Género Infantil</div>
+                                <div style="margin-top: 0.5rem; font-size: 0.875rem; color: var(--text-secondary);">
+                                    <span id="cantidadGeneroInfantil">0</span> unidades
+                                </div>
                             </div>
                             <div class="stat-card" style="border-left-color: var(--success);">
                                 <div class="stat-value" id="montoTotalMes">S/ 0.00</div>
                                 <div class="stat-label">Total del Mes</div>
+                                <div style="margin-top: 0.5rem; font-size: 0.875rem; color: var(--text-secondary);">
+                                    <span id="cantidadTotalMes">0</span> unidades
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1069,9 +1081,9 @@
                 return fechaCierre.getMonth() === mesActual && fechaCierre.getFullYear() === añoActual;
             });
             
-            let montoH = 0;
-            let montoM = 0;
-            let montoInfantil = 0;
+            let montoH = 0, cantidadH = 0;
+            let montoM = 0, cantidadM = 0;
+            let montoInfantil = 0, cantidadInfantil = 0;
             
             for (const orden of ordenesDelMes) {
                 if (!orden.hojaPacking) continue;
@@ -1091,20 +1103,31 @@
                     
                     if (genero === 'H') {
                         montoH += montoFila;
+                        cantidadH += cantidadTotal;
                     } else if (genero === 'M' || genero === 'OTROS') {
                         montoM += montoFila;
+                        cantidadM += cantidadTotal;
                     } else if (['NIÑAS', 'JOVENCITAS', 'JOVENCITOS', 'NIÑOS'].includes(genero)) {
                         montoInfantil += montoFila;
+                        cantidadInfantil += cantidadTotal;
                     }
                 }
             }
             
             const montoTotal = montoH + montoM + montoInfantil;
+            const cantidadTotal = cantidadH + cantidadM + cantidadInfantil;
             
             document.getElementById('montoGeneroH').textContent = `S/ ${montoH.toFixed(2)}`;
+            document.getElementById('cantidadGeneroH').textContent = cantidadH.toLocaleString('es-PE');
+            
             document.getElementById('montoGeneroM').textContent = `S/ ${montoM.toFixed(2)}`;
+            document.getElementById('cantidadGeneroM').textContent = cantidadM.toLocaleString('es-PE');
+            
             document.getElementById('montoGeneroInfantil').textContent = `S/ ${montoInfantil.toFixed(2)}`;
+            document.getElementById('cantidadGeneroInfantil').textContent = cantidadInfantil.toLocaleString('es-PE');
+            
             document.getElementById('montoTotalMes').textContent = `S/ ${montoTotal.toFixed(2)}`;
+            document.getElementById('cantidadTotalMes').textContent = cantidadTotal.toLocaleString('es-PE');
         }
 
         function renderizarInventario() {
