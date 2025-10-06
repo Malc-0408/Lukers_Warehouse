@@ -690,6 +690,18 @@
         }
 
         function handleAuthClick() {
+            if (!tokenClient) {
+                mostrarToast('Inicializando... por favor espera un momento', 'warning');
+                setTimeout(() => {
+                    if (tokenClient) {
+                        handleAuthClick();
+                    } else {
+                        mostrarToast('Error al cargar Google Sign-In. Recarga la página.', 'danger');
+                    }
+                }, 2000);
+                return;
+            }
+
             tokenClient.callback = async (resp) => {
                 if (resp.error !== undefined) {
                     throw (resp);
