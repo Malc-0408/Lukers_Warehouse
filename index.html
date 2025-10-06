@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SICIT v5.0 - Sistema Lukers</title>
+    <link rel="icon" href="data:," />
     
     <script src="https://apis.google.com/js/api.js"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -41,7 +42,8 @@
         .btn-danger { background: var(--danger); color: white; }
         .btn-warning { background: var(--warning); color: white; }
         .btn-outline { background: transparent; border: 2px solid var(--primary); color: var(--primary); }
-        .btn:hover { opacity: 0.9; transform: translateY(-1px); }
+        .btn:hover:not(:disabled) { opacity: 0.9; transform: translateY(-1px); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
         .table-container { background: var(--bg-card); border-radius: 0.75rem; overflow: auto; box-shadow: var(--shadow); max-height: 600px; }
         .pagination { display: flex; justify-content: center; align-items: center; gap: 0.5rem; margin-top: 1rem; }
         .pagination button { padding: 0.5rem 1rem; border: 1px solid var(--border); background: var(--bg-card); border-radius: 0.25rem; cursor: pointer; }
@@ -102,8 +104,8 @@
         <div class="login-box">
             <h2 style="font-size: 2rem; font-weight: 700; margin-bottom: 0.5rem;">SICIT v5.0</h2>
             <p style="color: var(--text-secondary); margin-bottom: 2rem;">Sistema Lukers - Inicia sesión con Google</p>
-            <button onclick="handleAuthClick()" class="btn btn-primary" style="padding: 1rem 2rem; font-size: 1.125rem; width: 100%;">
-                Iniciar Sesión con Google
+            <button onclick="handleAuthClick()" class="btn btn-primary" style="padding: 1rem 2rem; font-size: 1.125rem; width: 100%;" id="loginBtn" disabled>
+                Inicializando...
             </button>
             <p style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 1rem;">
                 Se requiere acceso a Google Sheets
@@ -656,6 +658,18 @@
         let searchReclasificacionTimeout = null;
         let detallesPickingCompletos = [];
 
+        // Manejador global de errores para Google API
+        window.addEventListener('error', function(e) {
+            if (e.message && (e.message.includes('gapi') || e.message.includes('tokenClient') || e.message.includes('google'))) {
+                console.warn('Error de inicialización de Google API:', e);
+                const loginBtn = document.getElementById('loginBtn');
+                if (loginBtn && loginBtn.disabled) {
+                    loginBtn.textContent = 'Error al cargar - Recarga la página';
+                    loginBtn.style.background = 'var(--danger)';
+                }
+            }
+        });
+
         function gapiLoaded() {
             gapi.load('client', initializeGapiClient);
         }
@@ -680,6 +694,12 @@
 
         function maybeEnableButtons() {
             if (gapiInited && gisInited) {
+                const loginBtn = document.getElementById('loginBtn');
+                if (loginBtn) {
+                    loginBtn.disabled = false;
+                    loginBtn.textContent = 'Iniciar Sesión con Google';
+                }
+                
                 const savedToken = localStorage.getItem('google_access_token');
                 if (savedToken) {
                     accessToken = savedToken;
@@ -690,9 +710,17 @@
         }
 
         function handleAuthClick() {
+            if (!tokenClient) {
+                mostrarToast('Inicializando Google Sign-In, por favor espera...', 'warning');
+                setTimeout(handleAuthClick, 500);
+                return;
+            }
+            
             tokenClient.callback = async (resp) => {
                 if (resp.error !== undefined) {
-                    throw (resp);
+                    console.error('Error en autenticación:', resp);
+                    mostrarToast('Error al conectar con Google. Intenta de nuevo.', 'danger');
+                    return;
                 }
                 accessToken = resp.access_token;
                 localStorage.setItem('google_access_token', accessToken);
@@ -2312,25 +2340,18 @@
             const orden = ordenes.find(o => o.id === ordenId);
             if (!orden) return;
 
-            // Calcular Total Atendido = Encontrado - Rechazado
             const totalAtendido = orden.unidadesEncontradas - orden.prendasRechazadas;
-
-            // Calcular Monto = suma de (cantidad_atendida_por_variante * kardex)
             let monto = 0;
             
-            // Recorrer hojaPacking y calcular monto
             for (const row of orden.hojaPacking) {
-                // Sumar cantidades distribuidas a todas las tiendas para esta fila
                 let cantidadAtendida = 0;
                 TIENDAS_LUKERS.forEach(tienda => {
                     cantidadAtendida += row[tienda] || 0;
                 });
                 
-                // Buscar kardex de esta variante
                 const productoInfo = productosSystem.find(p => p.variante === row.variante);
                 const kardex = productoInfo ? productoInfo.kardex : 0;
                 
-                // Acumular monto
                 monto += cantidadAtendida * kardex;
             }
 
@@ -2635,6 +2656,11 @@
             };
             reader.readAsArrayBuffer(file);
         }
+
+        window.gapiLoaded = gapiLoaded;
+        window.gisLoaded = gisLoaded;
     </script>
+    <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+    <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
 </body>
 </html>
