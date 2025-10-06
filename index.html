@@ -155,6 +155,29 @@
                             <div class="stat-label">Órdenes Activas</div>
                         </div>
                     </div>
+
+                    <div class="card">
+                        <h3 class="card-title">Monto Atendido del Mes - <span id="mesActual"></span></h3>
+                        <div class="stats-grid">
+                            <div class="stat-card" style="border-left-color: #3b82f6;">
+                                <div class="stat-value" id="montoGeneroH">S/ 0.00</div>
+                                <div class="stat-label">Género H</div>
+                            </div>
+                            <div class="stat-card" style="border-left-color: #ec4899;">
+                                <div class="stat-value" id="montoGeneroM">S/ 0.00</div>
+                                <div class="stat-label">Género M</div>
+                            </div>
+                            <div class="stat-card" style="border-left-color: #f59e0b;">
+                                <div class="stat-value" id="montoGeneroInfantil">S/ 0.00</div>
+                                <div class="stat-label">Género Infantil</div>
+                            </div>
+                            <div class="stat-card" style="border-left-color: var(--success);">
+                                <div class="stat-value" id="montoTotalMes">S/ 0.00</div>
+                                <div class="stat-label">Total del Mes</div>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="card">
                         <h3 class="card-title">Acceso Rápido</h3>
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
@@ -1027,6 +1050,61 @@
             document.getElementById('statUnidades').textContent = totalUnidades;
             document.getElementById('statBloqueadas').textContent = totalBloqueadas;
             document.getElementById('statOrdenes').textContent = ordenes.filter(o => o.estado !== 'Completada').length;
+            
+            calcularMontosPorGeneroMesActual();
+        }
+
+        function calcularMontosPorGeneroMesActual() {
+            const fechaActual = new Date();
+            const mesActual = fechaActual.getMonth();
+            const añoActual = fechaActual.getFullYear();
+            
+            const meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 
+                          'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+            document.getElementById('mesActual').textContent = `${meses[mesActual]} ${añoActual}`;
+            
+            const ordenesDelMes = ordenes.filter(orden => {
+                if (orden.estado !== 'Completada' || !orden.fechaCierre) return false;
+                const fechaCierre = new Date(orden.fechaCierre);
+                return fechaCierre.getMonth() === mesActual && fechaCierre.getFullYear() === añoActual;
+            });
+            
+            let montoH = 0;
+            let montoM = 0;
+            let montoInfantil = 0;
+            
+            for (const orden of ordenesDelMes) {
+                if (!orden.hojaPacking) continue;
+                
+                for (const fila of orden.hojaPacking) {
+                    let cantidadTotal = 0;
+                    TIENDAS_LUKERS.forEach(tienda => {
+                        cantidadTotal += fila[tienda] || 0;
+                    });
+                    
+                    const productoInfo = productosSystem.find(p => p.variante === fila.variante);
+                    if (!productoInfo) continue;
+                    
+                    const genero = (productoInfo.genero || '').toUpperCase();
+                    const kardex = productoInfo.kardex || 0;
+                    const montoFila = cantidadTotal * kardex;
+                    
+                    if (genero === 'H') {
+                        montoH += montoFila;
+                    } else if (genero === 'M' || genero === 'OTROS') {
+                        montoM += montoFila;
+                    } else if (['NIÑAS', 'JOVENCITAS', 'JOVENCITOS', 'NIÑOS'].includes(genero)) {
+                        montoInfantil += montoFila;
+                    }
+                }
+            }
+            
+            const montoTotal = montoH + montoM + montoInfantil;
+            
+            document.getElementById('montoGeneroH').textContent = `S/ ${montoH.toFixed(2)}`;
+            document.getElementById('montoGeneroM').textContent = `S/ ${montoM.toFixed(2)}`;
+            document.getElementById('montoGeneroInfantil').textContent = `S/ ${montoInfantil.toFixed(2)}`;
+            document.getElementById('montoTotalMes').textContent = `S/ ${montoTotal.toFixed(2)}`;
         }
 
         function renderizarInventario() {
