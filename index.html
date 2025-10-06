@@ -5,6 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SICIT v5.0 - Sistema Lukers</title>
     
+    <script>
+        // Definir funciones globales ANTES de cargar los scripts externos
+        window.gapiLoaded = function() {
+            console.log('GAPI script cargado');
+        };
+        
+        window.gisLoaded = function() {
+            console.log('GIS script cargado');
+        };
+    </script>
+    
     <script src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
     <script src="https://accounts.google.com/gsi/client" async defer onload="gisLoaded()"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -656,31 +667,50 @@
         let searchReclasificacionTimeout = null;
         let detallesPickingCompletos = [];
 
-        function gapiLoaded() {
-            console.log('GAPI cargado');
-            gapi.load('client', initializeGapiClient);
-        }
+        window.gapiLoaded = function() {
+            console.log('GAPI script cargado, inicializando...');
+            gapi.load('client', async function() {
+                try {
+                    await gapi.client.init({
+                        discoveryDocs: ['https://sheets.googleapis.com/$discovery/rest?version=v4'],
+                    });
+                    gapiInited = true;
+                    console.log('GAPI inicializado correctamente');
+                    maybeEnableButtons();
+                } catch (err) {
+                    console.error('Error inicializando GAPI:', err);
+                }
+            });
+        };
 
         async function initializeGapiClient() {
-            await gapi.client.init({
-                discoveryDocs: ['https://sheets.googleapis.com/$discovery/rest?version=v4'],
-            });
-            gapiInited = true;
-            console.log('GAPI inicializado');
-            maybeEnableButtons();
+            try {
+                await gapi.client.init({
+                    discoveryDocs: ['https://sheets.googleapis.com/$discovery/rest?version=v4'],
+                });
+                gapiInited = true;
+                console.log('GAPI inicializado');
+                maybeEnableButtons();
+            } catch (err) {
+                console.error('Error inicializando GAPI:', err);
+            }
         }
 
-        function gisLoaded() {
-            console.log('GIS cargado');
-            tokenClient = google.accounts.oauth2.initTokenClient({
-                client_id: GOOGLE_CONFIG.CLIENT_ID,
-                scope: GOOGLE_CONFIG.SCOPES,
-                callback: '',
-            });
-            gisInited = true;
-            console.log('GIS inicializado');
-            maybeEnableButtons();
-        }
+        window.gisLoaded = function() {
+            console.log('GIS script cargado, inicializando...');
+            try {
+                tokenClient = google.accounts.oauth2.initTokenClient({
+                    client_id: GOOGLE_CONFIG.CLIENT_ID,
+                    scope: GOOGLE_CONFIG.SCOPES,
+                    callback: '',
+                });
+                gisInited = true;
+                console.log('GIS inicializado correctamente, tokenClient:', !!tokenClient);
+                maybeEnableButtons();
+            } catch (err) {
+                console.error('Error inicializando GIS:', err);
+            }
+        };
 
         function maybeEnableButtons() {
             console.log('Verificando inicialización:', { gapiInited, gisInited });
