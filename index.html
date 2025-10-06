@@ -267,7 +267,10 @@
                 <div class="view-section" id="view-ordenes">
                     <div class="card">
                         <h3 class="card-title">Gestión de Órdenes</h3>
-                        <button class="btn btn-primary" onclick="mostrarModal('modalCrearOrden')" style="margin-bottom: 1.5rem;">Crear Nueva Orden (Excel)</button>
+                        <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem;">
+                            <button class="btn btn-primary" onclick="mostrarModal('modalCrearOrden')">Crear Orden Automática (Excel)</button>
+                            <button class="btn btn-success" onclick="mostrarModal('modalCrearOrdenManual')">Crear Orden Manual (Excel con Ubicaciones)</button>
+                        </div>
                         <div class="table-container">
                             <table class="table">
                                 <thead>
@@ -404,7 +407,7 @@
     <div class="modal-overlay" id="modalCrearOrden">
         <div class="modal">
             <div class="modal-header">
-                <h3 class="modal-title">Crear Nueva Orden</h3>
+                <h3 class="modal-title">Crear Orden Automática</h3>
                 <button onclick="cerrarModal('modalCrearOrden')" style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">×</button>
             </div>
             <div class="form-group">
@@ -413,11 +416,34 @@
             </div>
             <div class="alert alert-info">
                 <strong>Formato requerido:</strong> Excel con columnas:<br>
-                <strong>Variante, LUKERS EL SOL, LUKERS TRU PIZARRO, LUKERS LA MARINA, LUKERS PROLONGACIÓN IQUITOS, LUKERS CHI P. RUIZ, LUKERS TARAPOTO, LUKERS MENDIOLA, LUKERS ALFONSO UGARTE, LUKERS IQT LORES, LUKERS JIRON</strong>
+                <strong>Variante, LUKERS EL SOL, LUKERS TRU PIZARRO, LUKERS LA MARINA, LUKERS PROLONGACIÓN IQUITOS, LUKERS CHI P. RUIZ, LUKERS TARAPOTO, LUKERS MENDIOLA, LUKERS ALFONSO UGARTE, LUKERS IQT LORES, LUKERS JIRON</strong><br>
+                <em style="font-size: 0.875rem; margin-top: 0.5rem; display: block;">El sistema asignará automáticamente las ubicaciones disponibles.</em>
             </div>
             <div class="file-drop-zone" onclick="document.getElementById('fileInputOrden').click()">
                 <p style="font-size: 1.125rem; font-weight: 600; margin-bottom: 0.5rem;">Subir Orden (Excel)</p>
                 <input type="file" id="fileInputOrden" accept=".xlsx,.xls" style="display: none;" onchange="procesarOrden(event)">
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modalCrearOrdenManual">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Crear Orden Manual (con Ubicaciones)</h3>
+                <button onclick="cerrarModal('modalCrearOrdenManual')" style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">×</button>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Nombre de la Orden *</label>
+                <input type="text" class="form-control" id="nombreOrdenManual" placeholder="Ej: Pedido Especial - Ubicaciones Específicas" required>
+            </div>
+            <div class="alert alert-info">
+                <strong>Formato requerido:</strong> Excel con columnas:<br>
+                <strong>Variante, Ubicación, LUKERS EL SOL, LUKERS TRU PIZARRO, LUKERS LA MARINA, LUKERS PROLONGACIÓN IQUITOS, LUKERS CHI P. RUIZ, LUKERS TARAPOTO, LUKERS MENDIOLA, LUKERS ALFONSO UGARTE, LUKERS IQT LORES, LUKERS JIRON</strong><br>
+                <em style="font-size: 0.875rem; margin-top: 0.5rem; display: block;">Debes especificar de qué ubicación tomar cada variante.</em>
+            </div>
+            <div class="file-drop-zone" onclick="document.getElementById('fileInputOrdenManual').click()">
+                <p style="font-size: 1.125rem; font-weight: 600; margin-bottom: 0.5rem;">Subir Orden Manual (Excel)</p>
+                <input type="file" id="fileInputOrdenManual" accept=".xlsx,.xls" style="display: none;" onchange="procesarOrdenManual(event)">
             </div>
         </div>
     </div>
@@ -2451,15 +2477,164 @@
             document.getElementById('nuevaUbicacion').value = '';
         }
 
-        window.gapiLoaded = gapiLoaded;
-        window.gisLoaded = gisLoaded;
-        window.handleAuthClick = handleAuthClick;
-        window.handleSignoutClick = handleSignoutClick;
-        
-        window.onload = function() {
-            gapiLoaded();
-            gisLoaded();
-        };
+        async function procesarOrdenManual(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const nombreOrden = document.getElementById('nombreOrdenManual').value.trim();
+            if (!nombreOrden) {
+                mostrarToast('Por favor ingresa un nombre para la orden', 'warning');
+                return;
+            }
+
+            cargaMasivaEnProceso = true;
+            document.getElementById('loadingOverlay').classList.add('active');
+            document.getElementById('loadingText').textContent = 'Procesando orden manual...';
+            cerrarModal('modalCrearOrdenManual');
+
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+
+                    const ordenId = 'ORD-' + Date.now();
+                    const itemsMap = new Map();
+                    let totalUnidades = 0;
+                    const errores = [];
+
+                    for (const row of jsonData) {
+                        const variante = String(row.Variante || row.variante || '').trim();
+                        const ubicacion = String(row.Ubicacion || row.ubicacion || row['Ubicación'] || '').trim().toUpperCase();
+                        
+                        if (!variante || !ubicacion) continue;
+
+                        const distribucion = {};
+                        let totalFila = 0;
+
+                        TIENDAS_LUKERS.forEach(tienda => {
+                            const cantidad = parseInt(row[tienda] || 0);
+                            if (cantidad > 0) {
+                                distribucion[tienda] = cantidad;
+                                totalFila += cantidad;
+                            }
+                        });
+
+                        if (totalFila === 0) continue;
+
+                        const itemInv = inventario.find(i => 
+                            i.variante === variante && i.ubicacion === ubicacion
+                        );
+
+                        if (!itemInv) {
+                            errores.push(`❌ Variante ${variante} no existe en ubicación ${ubicacion}`);
+                            continue;
+                        }
+
+                        const disponible = itemInv.stockFisico - itemInv.stockBloqueado;
+                        if (disponible < totalFila) {
+                            errores.push(`⚠️ ${variante} en ${ubicacion}: solicitadas ${totalFila}, disponibles ${disponible}`);
+                        }
+
+                        const key = variante;
+                        if (!itemsMap.has(key)) {
+                            itemsMap.set(key, {
+                                variante,
+                                cantidadSolicitada: 0,
+                                distribucion: {},
+                                ubicaciones: []
+                            });
+                        }
+
+                        const item = itemsMap.get(key);
+                        item.cantidadSolicitada += totalFila;
+                        
+                        TIENDAS_LUKERS.forEach(tienda => {
+                            if (distribucion[tienda]) {
+                                item.distribucion[tienda] = (item.distribucion[tienda] || 0) + distribucion[tienda];
+                            }
+                        });
+
+                        item.ubicaciones.push({
+                            ubicacion: ubicacion,
+                            cantidad: totalFila,
+                            encontrada: 0
+                        });
+
+                        totalUnidades += totalFila;
+                    }
+
+                    if (errores.length > 0) {
+                        cargaMasivaEnProceso = false;
+                        document.getElementById('loadingOverlay').classList.remove('active');
+                        const mensajeError = errores.slice(0, 5).join('\n');
+                        alert(`Se encontraron problemas:\n\n${mensajeError}\n${errores.length > 5 ? `\n...y ${errores.length - 5} errores más` : ''}`);
+                        return;
+                    }
+
+                    const items = Array.from(itemsMap.values());
+
+                    const hojaRutaPicking = [];
+                    for (const item of items) {
+                        for (const ub of item.ubicaciones) {
+                            const prodSystem = productosSystem.find(p => p.variante === item.variante) || {};
+                            hojaRutaPicking.push({
+                                ubicacion: ub.ubicacion,
+                                variante: item.variante,
+                                marca: prodSystem.marca || '',
+                                codigoComercial: prodSystem.codigoComercial || '',
+                                talla: prodSystem.talla || '',
+                                pvp: prodSystem.pvp || 0,
+                                descripcion: prodSystem.descripcion || '',
+                                total: ub.cantidad,
+                                ...item.distribucion
+                            });
+                        }
+                    }
+
+                    hojaRutaPicking.sort((a, b) => a.ubicacion.localeCompare(b.ubicacion));
+
+                    const orden = {
+                        id: ordenId,
+                        nombre: nombreOrden,
+                        fecha: new Date(),
+                        estado: 'Pendiente Picking',
+                        totalUnidades,
+                        totalAtendido: 0,
+                        monto: 0,
+                        items,
+                        hojaRutaPicking,
+                        hojaPacking: [],
+                        cantidadesEncontradas: null,
+                        unidadesEncontradas: 0,
+                        unidadesFaltantes: 0,
+                        distribucionAjustada: false,
+                        observaciones: null,
+                        prendasRechazadas: 0,
+                        fechaCierre: null
+                    };
+
+                    ordenes.push(orden);
+                    await guardarOrdenesSheets();
+
+                    cargaMasivaEnProceso = false;
+                    document.getElementById('loadingOverlay').classList.remove('active');
+                    mostrarToast(`Orden manual "${nombreOrden}" creada exitosamente`, 'success');
+                    document.getElementById('nombreOrdenManual').value = '';
+                    renderizarOrdenes();
+                    renderizarPicking();
+                    actualizarDashboard();
+                } catch (error) {
+                    cargaMasivaEnProceso = false;
+                    document.getElementById('loadingOverlay').classList.remove('active');
+                    console.error(error);
+                    mostrarToast('Error al procesar orden manual', 'danger');
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
     </script>
 </body>
 </html>
