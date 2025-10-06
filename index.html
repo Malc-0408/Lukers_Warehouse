@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SICIT v5.0 - Sistema Lukers</title>
     
-    <script src="https://apis.google.com/js/api.js"></script>
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer onload="gisLoaded()"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     
     <style>
@@ -657,6 +657,7 @@
         let detallesPickingCompletos = [];
 
         function gapiLoaded() {
+            console.log('GAPI cargado');
             gapi.load('client', initializeGapiClient);
         }
 
@@ -665,32 +666,40 @@
                 discoveryDocs: ['https://sheets.googleapis.com/$discovery/rest?version=v4'],
             });
             gapiInited = true;
+            console.log('GAPI inicializado');
             maybeEnableButtons();
         }
 
         function gisLoaded() {
+            console.log('GIS cargado');
             tokenClient = google.accounts.oauth2.initTokenClient({
                 client_id: GOOGLE_CONFIG.CLIENT_ID,
                 scope: GOOGLE_CONFIG.SCOPES,
                 callback: '',
             });
             gisInited = true;
+            console.log('GIS inicializado');
             maybeEnableButtons();
         }
 
         function maybeEnableButtons() {
+            console.log('Verificando inicialización:', { gapiInited, gisInited });
             if (gapiInited && gisInited) {
                 const savedToken = localStorage.getItem('google_access_token');
                 if (savedToken) {
                     accessToken = savedToken;
                     gapi.client.setToken({ access_token: accessToken });
                     iniciarApp();
+                } else {
+                    console.log('Listo para iniciar sesión');
                 }
             }
         }
 
         function handleAuthClick() {
+            console.log('handleAuthClick ejecutado');
             if (!tokenClient) {
+                console.warn('tokenClient no inicializado');
                 mostrarToast('Inicializando... por favor espera un momento', 'warning');
                 setTimeout(() => {
                     if (tokenClient) {
@@ -702,8 +711,10 @@
                 return;
             }
 
+            console.log('Solicitando autorización...');
             tokenClient.callback = async (resp) => {
                 if (resp.error !== undefined) {
+                    console.error('Error en autorización:', resp);
                     throw (resp);
                 }
                 accessToken = resp.access_token;
