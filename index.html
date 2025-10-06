@@ -697,19 +697,36 @@
         }
 
         window.gisLoaded = function() {
-            console.log('GIS script cargado, inicializando...');
-            try {
-                tokenClient = google.accounts.oauth2.initTokenClient({
-                    client_id: GOOGLE_CONFIG.CLIENT_ID,
-                    scope: GOOGLE_CONFIG.SCOPES,
-                    callback: '',
-                });
-                gisInited = true;
-                console.log('GIS inicializado correctamente, tokenClient:', !!tokenClient);
-                maybeEnableButtons();
-            } catch (err) {
-                console.error('Error inicializando GIS:', err);
+            console.log('GIS script cargado, verificando disponibilidad...');
+            
+            function intentarInicializarGIS(intentos = 0) {
+                if (typeof google === 'undefined' || !google.accounts || !google.accounts.oauth2) {
+                    console.log('google.accounts.oauth2 no disponible, esperando... intento:', intentos);
+                    if (intentos < 10) {
+                        setTimeout(() => intentarInicializarGIS(intentos + 1), 500);
+                    } else {
+                        console.error('No se pudo cargar google.accounts.oauth2 después de 10 intentos');
+                        mostrarToast('Error al cargar Google Sign-In. Recarga la página.', 'danger');
+                    }
+                    return;
+                }
+                
+                try {
+                    tokenClient = google.accounts.oauth2.initTokenClient({
+                        client_id: GOOGLE_CONFIG.CLIENT_ID,
+                        scope: GOOGLE_CONFIG.SCOPES,
+                        callback: '',
+                    });
+                    gisInited = true;
+                    console.log('GIS inicializado correctamente, tokenClient creado:', !!tokenClient);
+                    maybeEnableButtons();
+                } catch (err) {
+                    console.error('Error inicializando tokenClient:', err);
+                    mostrarToast('Error al inicializar Google Sign-In: ' + err.message, 'danger');
+                }
             }
+            
+            intentarInicializarGIS();
         };
 
         function maybeEnableButtons() {
