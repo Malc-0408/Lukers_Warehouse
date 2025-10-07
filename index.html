@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SICIT v5.0 - Sistema Lukers</title>
+    <title>SICIT v5.1 - Sistema Lukers</title>
     
     <script src="https://apis.google.com/js/api.js"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -102,7 +102,7 @@
 <body>
     <div class="login-screen" id="loginScreen">
         <div class="login-box">
-            <h2 style="font-size: 2rem; font-weight: 700; margin-bottom: 0.5rem;">SICIT v5.0</h2>
+            <h2 style="font-size: 2rem; font-weight: 700; margin-bottom: 0.5rem;">SICIT v5.1</h2>
             <p style="color: var(--text-secondary); margin-bottom: 2rem;">Sistema Lukers - Inicia sesión con Google</p>
             <button onclick="handleAuthClick()" class="btn btn-primary" style="padding: 1rem 2rem; font-size: 1.125rem; width: 100%;">
                 Iniciar Sesión con Google
@@ -116,7 +116,7 @@
     <div class="app-container hidden" id="appContainer">
         <div class="sidebar">
             <div class="sidebar-header">
-                <h1 class="sidebar-title">SICIT v5.0</h1>
+                <h1 class="sidebar-title">SICIT v5.1</h1>
                 <p style="font-size: 0.875rem; opacity: 0.8;">Sistema Lukers</p>
             </div>
             <nav class="nav-menu" id="navMenu"></nav>
@@ -208,7 +208,8 @@
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
                             <button class="btn btn-primary" onclick="mostrarModal('modalSubidaMasiva')">Subir Inventario Masivo (Excel)</button>
                             <button class="btn btn-success" onclick="mostrarModal('modalAgregarIndividual')">Agregar Producto Individual</button>
-                            <button class="btn btn-outline" onclick="exportarInventario()">Exportar Inventario</button>
+                            <button class="btn btn-outline" onclick="exportarInventario()">Exportar Inventario Básico</button>
+                            <button class="btn btn-primary" onclick="exportarInventarioCompleto()">📊 Exportar Inventario Completo</button>
                             <button class="btn btn-warning" onclick="mostrarModal('modalModificarMasivo')">Modificar Masivo</button>
                             <button class="btn btn-danger" onclick="mostrarModal('modalEliminarMasivo')">Eliminar Masivo</button>
                         </div>
@@ -248,22 +249,22 @@
                                 <input type="text" class="form-control" placeholder="🔍 Buscar..." id="buscarProductosSystem" oninput="debounceSearchProductos()">
                             </div>
                             <div class="form-group">
-                                <select class="form-control" id="filtroGenero" onchange="aplicarFiltrosProductos()">
+                                <select class="form-control" id="filtroGenero" onchange="actualizarFiltrosCascada()">
                                     <option value="">Todos los Géneros</option>
                                 </select>
                             </div>
                             <div class="form-group">
-                                <select class="form-control" id="filtroLinea" onchange="aplicarFiltrosProductos()">
+                                <select class="form-control" id="filtroLinea" onchange="actualizarFiltrosCascada()">
                                     <option value="">Todas las Líneas</option>
                                 </select>
                             </div>
                             <div class="form-group">
-                                <select class="form-control" id="filtroTemporada" onchange="aplicarFiltrosProductos()">
+                                <select class="form-control" id="filtroTemporada" onchange="actualizarFiltrosCascada()">
                                     <option value="">Todas las Temporadas</option>
                                 </select>
                             </div>
                             <div class="form-group">
-                                <select class="form-control" id="filtroMarca" onchange="aplicarFiltrosProductos()">
+                                <select class="form-control" id="filtroMarca" onchange="actualizarFiltrosCascada()">
                                     <option value="">Todas las Marcas</option>
                                 </select>
                             </div>
@@ -686,6 +687,22 @@
         </div>
     </div>
 
+    <div class="modal-overlay" id="modalVariantesFaltantes">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">⚠️ Reporte de Variantes Sin Stock</h3>
+                <button onclick="cerrarModal('modalVariantesFaltantes')" style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">×</button>
+            </div>
+            <div class="alert alert-warning">
+                <strong>Las siguientes variantes no tienen stock disponible pero están incluidas en la orden para búsqueda manual:</strong>
+            </div>
+            <div id="variantesFaltantesContenido"></div>
+            <div style="margin-top: 1.5rem;">
+                <button class="btn btn-primary" onclick="descargarReporteFaltantes()" style="width: 100%;">📥 Descargar Reporte</button>
+            </div>
+        </div>
+    </div>
+
     <div class="modal-overlay" id="loadingOverlay">
         <div style="background: var(--bg-card); padding: 3rem; border-radius: 1rem; text-align: center; min-width: 400px;">
             <div class="loading-spinner"></div>
@@ -736,6 +753,7 @@
         let productosSystem = [];
         let ordenes = [];
         let itemsReclasificacion = [];
+        let variantesFaltantesActual = [];
         let cargaMasivaEnProceso = false;
         let paginaInventario = 1;
         let paginaProductosSystem = 1;
@@ -1049,7 +1067,8 @@
                         distribucionAjustada: row[13] === 'true',
                         observaciones: JSON.parse(row[14] || 'null'),
                         prendasRechazadas: parseInt(row[15]) || 0,
-                        fechaCierre: row[16] ? new Date(row[16]) : null
+                        fechaCierre: row[16] ? new Date(row[16]) : null,
+                        variantesSinStock: JSON.parse(row[17] || '[]')
                     });
                 } catch (e) {
                     console.error('Error al parsear orden:', e);
@@ -1061,7 +1080,7 @@
             const valores = [
                 ['id', 'nombre', 'fecha', 'estado', 'totalUnidades', 'totalAtendido', 'monto', 'items', 'hojaRutaPicking', 'hojaPacking', 
                  'cantidadesEncontradas', 'unidadesEncontradas', 'unidadesFaltantes', 
-                 'distribucionAjustada', 'observaciones', 'prendasRechazadas', 'fechaCierre'],
+                 'distribucionAjustada', 'observaciones', 'prendasRechazadas', 'fechaCierre', 'variantesSinStock'],
                 ...ordenes.map(o => [
                     o.id, o.nombre || '', o.fecha.toISOString(), o.estado, o.totalUnidades,
                     o.totalAtendido || 0, o.monto || 0,
@@ -1069,7 +1088,8 @@
                     JSON.stringify(o.hojaPacking || []), JSON.stringify(o.cantidadesEncontradas || null),
                     o.unidadesEncontradas || 0, o.unidadesFaltantes || 0,
                     o.distribucionAjustada || false, JSON.stringify(o.observaciones || null),
-                    o.prendasRechazadas || 0, o.fechaCierre ? o.fechaCierre.toISOString() : ''
+                    o.prendasRechazadas || 0, o.fechaCierre ? o.fechaCierre.toISOString() : '',
+                    JSON.stringify(o.variantesSinStock || [])
                 ])
             ];
             await escribirHoja('ordenes', valores);
@@ -1465,7 +1485,8 @@
                         const BATCH_SIZE = 5000;
 
                         document.getElementById('loadingText').textContent = `Procesando ${totalRows} filas...`;
-for (let i = 0; i < jsonData.length; i += BATCH_SIZE) {
+                        
+                        for (let i = 0; i < jsonData.length; i += BATCH_SIZE) {
                             const batch = jsonData.slice(i, i + BATCH_SIZE);
                             for (const row of batch) {
                                 const variante = String(row.Variante || row.variante || '').trim();
@@ -1479,9 +1500,7 @@ for (let i = 0; i < jsonData.length; i += BATCH_SIZE) {
                                 );
 
                                 if (existente) {
-                                    if (confirm(`La variante ${variante} ya existe en ${ubicacion} con ${existente.stockFisico} unidades.\n\n¿Deseas AUMENTAR la cantidad en ${stockFisico} unidades?`)) {
-                                        existente.stockFisico += stockFisico;
-                                    }
+                                    existente.stockFisico += stockFisico;
                                 } else {
                                     inventario.push({ variante, ubicacion, stockFisico, stockBloqueado: 0 });
                                 }
@@ -1713,31 +1732,93 @@ for (let i = 0; i < jsonData.length; i += BATCH_SIZE) {
             const ws = XLSX.utils.json_to_sheet(inventario);
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, 'Inventario');
-            XLSX.writeFile(wb, `inventario-${Date.now()}.xlsx`);
-            mostrarToast('Inventario exportado', 'success');
+            XLSX.writeFile(wb, `inventario-basico-${Date.now()}.xlsx`);
+            mostrarToast('Inventario básico exportado', 'success');
+        }
+
+        function exportarInventarioCompleto() {
+            const inventarioCompleto = inventario.map(item => {
+                const producto = productosSystem.find(p => p.variante === item.variante) || {};
+                return {
+                    'Variante': item.variante,
+                    'Ubicación': item.ubicacion,
+                    'Stock Físico': item.stockFisico,
+                    'Stock Bloqueado': item.stockBloqueado,
+                    'Stock Disponible': item.stockFisico - item.stockBloqueado,
+                    'Código Comercial': producto.codigoComercial || '',
+                    'Descripción': producto.descripcion || '',
+                    'Marca': producto.marca || '',
+                    'Talla': producto.talla || '',
+                    'Color': producto.color || '',
+                    'Género': producto.genero || '',
+                    'Línea': producto.linea || '',
+                    'Mundo': producto.mundo || '',
+                    'Temporada': producto.temporada || '',
+                    'PVP': producto.pvp || 0,
+                    'Kardex': producto.kardex || 0,
+                    'Stk Fin Sistema': producto.stkFin || 0
+                };
+            });
+
+            const ws = XLSX.utils.json_to_sheet(inventarioCompleto);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Inventario Completo');
+            XLSX.writeFile(wb, `inventario-completo-${Date.now()}.xlsx`);
+            mostrarToast('Inventario completo exportado', 'success');
         }
 
         function cargarFiltrosProductos() {
             const generos = [...new Set(productosSystem.map(p => p.genero).filter(Boolean))].sort();
-            const lineas = [...new Set(productosSystem.map(p => p.linea).filter(Boolean))].sort();
-            const temporadas = [...new Set(productosSystem.map(p => p.temporada).filter(Boolean))].sort();
-            const marcas = [...new Set(productosSystem.map(p => p.marca).filter(Boolean))].sort();
-            const mundos = [...new Set(productosSystem.map(p => p.mundo).filter(Boolean))].sort();
-
+            
             document.getElementById('filtroGenero').innerHTML = '<option value="">Todos los Géneros</option>' + 
                 generos.map(g => `<option value="${g}">${g}</option>`).join('');
             
+            actualizarFiltrosCascada();
+        }
+
+        function actualizarFiltrosCascada() {
+            const generoSeleccionado = document.getElementById('filtroGenero').value;
+            const lineaSeleccionada = document.getElementById('filtroLinea').value;
+            const temporadaSeleccionada = document.getElementById('filtroTemporada').value;
+            const marcaSeleccionada = document.getElementById('filtroMarca').value;
+
+            let productosFiltrados = productosSystem;
+
+            if (generoSeleccionado) {
+                productosFiltrados = productosFiltrados.filter(p => p.genero === generoSeleccionado);
+            }
+            if (lineaSeleccionada) {
+                productosFiltrados = productosFiltrados.filter(p => p.linea === lineaSeleccionada);
+            }
+            if (temporadaSeleccionada) {
+                productosFiltrados = productosFiltrados.filter(p => p.temporada === temporadaSeleccionada);
+            }
+            if (marcaSeleccionada) {
+                productosFiltrados = productosFiltrados.filter(p => p.marca === marcaSeleccionada);
+            }
+
+            const lineas = [...new Set(productosFiltrados.map(p => p.linea).filter(Boolean))].sort();
+            const temporadas = [...new Set(productosFiltrados.map(p => p.temporada).filter(Boolean))].sort();
+            const marcas = [...new Set(productosFiltrados.map(p => p.marca).filter(Boolean))].sort();
+            const mundos = [...new Set(productosFiltrados.map(p => p.mundo).filter(Boolean))].sort();
+
+            const lineaActual = document.getElementById('filtroLinea').value;
             document.getElementById('filtroLinea').innerHTML = '<option value="">Todas las Líneas</option>' + 
-                lineas.map(l => `<option value="${l}">${l}</option>`).join('');
-            
+                lineas.map(l => `<option value="${l}" ${l === lineaActual ? 'selected' : ''}>${l}</option>`).join('');
+
+            const temporadaActual = document.getElementById('filtroTemporada').value;
             document.getElementById('filtroTemporada').innerHTML = '<option value="">Todas las Temporadas</option>' + 
-                temporadas.map(t => `<option value="${t}">${t}</option>`).join('');
-            
+                temporadas.map(t => `<option value="${t}" ${t === temporadaActual ? 'selected' : ''}>${t}</option>`).join('');
+
+            const marcaActual = document.getElementById('filtroMarca').value;
             document.getElementById('filtroMarca').innerHTML = '<option value="">Todas las Marcas</option>' + 
-                marcas.map(m => `<option value="${m}">${m}</option>`).join('');
-            
+                marcas.map(m => `<option value="${m}" ${m === marcaActual ? 'selected' : ''}>${m}</option>`).join('');
+
+            const mundoActual = document.getElementById('filtroMundo').value;
             document.getElementById('filtroMundo').innerHTML = '<option value="">Todos los Mundos</option>' + 
-                mundos.map(m => `<option value="${m}">${m}</option>`).join('');
+                mundos.map(m => `<option value="${m}" ${m === mundoActual ? 'selected' : ''}>${m}</option>`).join('');
+
+            aplicarFiltrosProductos();
         }
 
         function limpiarFiltros() {
@@ -1747,7 +1828,7 @@ for (let i = 0; i < jsonData.length; i += BATCH_SIZE) {
             document.getElementById('filtroTemporada').value = '';
             document.getElementById('filtroMarca').value = '';
             document.getElementById('filtroMundo').value = '';
-            aplicarFiltrosProductos();
+            actualizarFiltrosCascada();
         }
 
         function aplicarFiltrosProductos() {
@@ -1926,6 +2007,40 @@ for (let i = 0; i < jsonData.length; i += BATCH_SIZE) {
             return distribucion;
         }
 
+        function consolidarHojaRuta(items) {
+            const consolidado = new Map();
+
+            for (const item of items) {
+                for (const ub of item.ubicaciones) {
+                    const key = `${item.variante}|${ub.ubicacion}`;
+                    
+                    if (consolidado.has(key)) {
+                        const existente = consolidado.get(key);
+                        existente.total += ub.cantidad;
+                        
+                        TIENDAS_LUKERS.forEach(tienda => {
+                            existente[tienda] = (existente[tienda] || 0) + (item.distribucion[tienda] || 0);
+                        });
+                    } else {
+                        const prodSystem = productosSystem.find(p => p.variante === item.variante) || {};
+                        consolidado.set(key, {
+                            ubicacion: ub.ubicacion,
+                            variante: item.variante,
+                            marca: prodSystem.marca || '',
+                            codigoComercial: prodSystem.codigoComercial || '',
+                            talla: prodSystem.talla || '',
+                            pvp: prodSystem.pvp || 0,
+                            descripcion: prodSystem.descripcion || '',
+                            total: ub.cantidad,
+                            ...item.distribucion
+                        });
+                    }
+                }
+            }
+
+            return Array.from(consolidado.values()).sort((a, b) => a.ubicacion.localeCompare(b.ubicacion));
+        }
+
         async function procesarOrdenAutomatica(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -1953,6 +2068,7 @@ for (let i = 0; i < jsonData.length; i += BATCH_SIZE) {
 
                         const ordenId = 'ORD-' + Date.now();
                         const items = [];
+                        const variantesSinStock = [];
                         let totalUnidades = 0;
 
                         for (const row of jsonData) {
@@ -1989,6 +2105,15 @@ for (let i = 0; i < jsonData.length; i += BATCH_SIZE) {
                                 .sort((a, b) => (b.stockFisico - b.stockBloqueado) - (a.stockFisico - a.stockBloqueado));
 
                             let restante = item.cantidadSolicitada;
+                            
+                            if (ubicacionesDisponibles.length === 0) {
+                                variantesSinStock.push({
+                                    variante: item.variante,
+                                    cantidadSolicitada: item.cantidadSolicitada,
+                                    distribucion: item.distribucion
+                                });
+                            }
+
                             for (const ubicacion of ubicacionesDisponibles) {
                                 if (restante <= 0) break;
                                 const disponible = ubicacion.stockFisico - ubicacion.stockBloqueado;
@@ -2004,30 +2129,12 @@ for (let i = 0; i < jsonData.length; i += BATCH_SIZE) {
                                 restante -= tomar;
                             }
 
-                            if (restante > 0) {
+                            if (restante > 0 && ubicacionesDisponibles.length > 0) {
                                 mostrarToast(`Alerta: Faltan ${restante} unidades de ${item.variante}`, 'warning');
                             }
                         }
 
-                        const hojaRutaPicking = [];
-                        for (const item of items) {
-                            for (const ub of item.ubicaciones) {
-                                const prodSystem = productosSystem.find(p => p.variante === item.variante) || {};
-                                hojaRutaPicking.push({
-                                    ubicacion: ub.ubicacion,
-                                    variante: item.variante,
-                                    marca: prodSystem.marca || '',
-                                    codigoComercial: prodSystem.codigoComercial || '',
-                                    talla: prodSystem.talla || '',
-                                    pvp: prodSystem.pvp || 0,
-                                    descripcion: prodSystem.descripcion || '',
-                                    total: ub.cantidad,
-                                    ...item.distribucion
-                                });
-                            }
-                        }
-
-                        hojaRutaPicking.sort((a, b) => a.ubicacion.localeCompare(b.ubicacion));
+                        const hojaRutaPicking = consolidarHojaRuta(items);
 
                         const orden = {
                             id: ordenId,
@@ -2046,7 +2153,8 @@ for (let i = 0; i < jsonData.length; i += BATCH_SIZE) {
                             distribucionAjustada: false,
                             observaciones: null,
                             prendasRechazadas: 0,
-                            fechaCierre: null
+                            fechaCierre: null,
+                            variantesSinStock
                         };
 
                         ordenes.push(orden);
@@ -2055,6 +2163,12 @@ for (let i = 0; i < jsonData.length; i += BATCH_SIZE) {
 
                         mostrarToast(`Orden "${nombreOrden}" creada exitosamente (Modo Automático)`, 'success');
                         document.getElementById('nombreOrdenAutomatica').value = '';
+                        
+                        if (variantesSinStock.length > 0) {
+                            variantesFaltantesActual = variantesSinStock;
+                            mostrarReporteVariantesFaltantes(ordenId);
+                        }
+                        
                         renderizarInventario();
                         renderizarOrdenes();
                         renderizarPicking();
@@ -2183,25 +2297,7 @@ for (let i = 0; i < jsonData.length; i += BATCH_SIZE) {
                             return;
                         }
 
-                        const hojaRutaPicking = [];
-                        for (const item of items) {
-                            for (const ub of item.ubicaciones) {
-                                const prodSystem = productosSystem.find(p => p.variante === item.variante) || {};
-                                hojaRutaPicking.push({
-                                    ubicacion: ub.ubicacion,
-                                    variante: item.variante,
-                                    marca: prodSystem.marca || '',
-                                    codigoComercial: prodSystem.codigoComercial || '',
-                                    talla: prodSystem.talla || '',
-                                    pvp: prodSystem.pvp || 0,
-                                    descripcion: prodSystem.descripcion || '',
-                                    total: ub.cantidad,
-                                    ...item.distribucion
-                                });
-                            }
-                        }
-
-                        hojaRutaPicking.sort((a, b) => a.ubicacion.localeCompare(b.ubicacion));
+                        const hojaRutaPicking = consolidarHojaRuta(items);
 
                         const orden = {
                             id: ordenId,
@@ -2220,7 +2316,8 @@ for (let i = 0; i < jsonData.length; i += BATCH_SIZE) {
                             distribucionAjustada: false,
                             observaciones: null,
                             prendasRechazadas: 0,
-                            fechaCierre: null
+                            fechaCierre: null,
+                            variantesSinStock: []
                         };
 
                         ordenes.push(orden);
@@ -2248,6 +2345,58 @@ for (let i = 0; i < jsonData.length; i += BATCH_SIZE) {
                 console.error(error);
                 mostrarToast('Error al procesar orden', 'danger');
             }
+        }
+
+        function mostrarReporteVariantesFaltantes(ordenId) {
+            const contenido = variantesFaltantesActual.map(item => {
+                const producto = productosSystem.find(p => p.variante === item.variante) || {};
+                const tiendasSolicitadas = TIENDAS_LUKERS
+                    .filter(t => item.distribucion[t] > 0)
+                    .map(t => `${t}: ${item.distribucion[t]}`)
+                    .join(', ');
+
+                return `
+                    <div style="border: 1px solid var(--border); border-radius: 0.5rem; padding: 1rem; margin-bottom: 0.5rem; background: var(--bg-primary);">
+                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem;">
+                            <div><strong>Variante:</strong> ${item.variante}</div>
+                            <div><strong>Cantidad:</strong> ${item.cantidadSolicitada} unidades</div>
+                            <div><strong>Descripción:</strong> ${producto.descripcion || 'N/A'}</div>
+                            <div><strong>Marca:</strong> ${producto.marca || 'N/A'}</div>
+                            <div style="grid-column: 1 / -1;"><strong>Distribución:</strong> ${tiendasSolicitadas}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            document.getElementById('variantesFaltantesContenido').innerHTML = contenido;
+            mostrarModal('modalVariantesFaltantes');
+        }
+
+        function descargarReporteFaltantes() {
+            if (variantesFaltantesActual.length === 0) return;
+
+            const datosExcel = variantesFaltantesActual.map(item => {
+                const producto = productosSystem.find(p => p.variante === item.variante) || {};
+                const row = {
+                    'Variante': item.variante,
+                    'Descripción': producto.descripcion || '',
+                    'Marca': producto.marca || '',
+                    'Talla': producto.talla || '',
+                    'Cantidad Solicitada': item.cantidadSolicitada
+                };
+
+                TIENDAS_LUKERS.forEach(tienda => {
+                    row[tienda] = item.distribucion[tienda] || 0;
+                });
+
+                return row;
+            });
+
+            const ws = XLSX.utils.json_to_sheet(datosExcel);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Variantes Sin Stock');
+            XLSX.writeFile(wb, `variantes-sin-stock-${Date.now()}.xlsx`);
+            mostrarToast('Reporte descargado', 'success');
         }
 
         function renderizarOrdenes() {
@@ -2278,12 +2427,21 @@ for (let i = 0; i < jsonData.length; i += BATCH_SIZE) {
                         <td style="white-space: nowrap;">
                             <button class="btn btn-outline" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" onclick="descargarHojaPicking('${orden.id}')">📥 Picking</button>
                             ${orden.estado === 'Pendiente Packing' || orden.estado === 'Completada' ? `<button class="btn btn-outline" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" onclick="descargarHojaPacking('${orden.id}')">📥 Packing</button>` : ''}
+                            ${orden.variantesSinStock && orden.variantesSinStock.length > 0 ? `<button class="btn btn-warning" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" onclick="verReporteFaltantes('${orden.id}')">⚠️ Sin Stock</button>` : ''}
                             ${puedeEditar ? `<button class="btn btn-warning" style="padding: 0.25rem 0.5rem; font-size: 1rem;" onclick="editarOrden('${orden.id}')" title="Editar">✏️</button>` : ''}
                             ${puedeEditar ? `<button class="btn btn-danger" style="padding: 0.25rem 0.5rem; font-size: 1rem;" onclick="eliminarOrden('${orden.id}')" title="Eliminar">🗑️</button>` : ''}
                         </td>
                     </tr>
                 `;
             }).join('');
+        }
+
+        function verReporteFaltantes(ordenId) {
+            const orden = ordenes.find(o => o.id === ordenId);
+            if (!orden || !orden.variantesSinStock) return;
+            
+            variantesFaltantesActual = orden.variantesSinStock;
+            mostrarReporteVariantesFaltantes(ordenId);
         }
 
         function editarOrden(ordenId) {
@@ -2435,9 +2593,11 @@ for (let i = 0; i < jsonData.length; i += BATCH_SIZE) {
                                 <span class="badge badge-blue">${orden.estado}</span>
                             </div>
                             <p>Total Unidades: <strong>${orden.totalUnidades}</strong></p>
+                            ${orden.variantesSinStock && orden.variantesSinStock.length > 0 ? `<p style="color: var(--warning);">⚠️ ${orden.variantesSinStock.length} variantes sin stock</p>` : ''}
                             <p>Fecha y Hora: ${fechaHora}</p>
-                            <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
+                            <div style="margin-top: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
                                 <button class="btn btn-primary" onclick="descargarHojaPicking('${orden.id}')">📥 Descargar Hoja Ruta</button>
+                                ${orden.variantesSinStock && orden.variantesSinStock.length > 0 ? `<button class="btn btn-warning" onclick="verReporteFaltantes('${orden.id}')">⚠️ Ver Sin Stock</button>` : ''}
                                 <button class="btn btn-success" onclick="abrirModalConfirmarCantidades('${orden.id}')">✓ Confirmar Cantidades</button>
                             </div>
                         </div>
@@ -3025,36 +3185,19 @@ for (let i = 0; i < jsonData.length; i += BATCH_SIZE) {
             item.ubicacionDestino = nuevaUbicacion;
             item.estado = 'Completada';
 
-            if (!nuevaUbicacion.startsWith('191')) {
-                const existente = inventario.find(inv => 
-                    inv.variante === item.nuevaVariante && inv.ubicacion === nuevaUbicacion
-                );
+            const existente = inventario.find(inv => 
+                inv.variante === item.nuevaVariante && inv.ubicacion === nuevaUbicacion
+            );
 
-                if (existente) {
-                    existente.stockFisico += item.cantidad;
-                } else {
-                    inventario.push({
-                        variante: item.nuevaVariante,
-                        ubicacion: nuevaUbicacion,
-                        stockFisico: item.cantidad,
-                        stockBloqueado: 0
-                    });
-                }
+            if (existente) {
+                existente.stockFisico += item.cantidad;
             } else {
-                const existente = inventario.find(inv => 
-                    inv.variante === item.nuevaVariante && inv.ubicacion === nuevaUbicacion
-                );
-
-                if (existente) {
-                    existente.stockFisico += item.cantidad;
-                } else {
-                    inventario.push({
-                        variante: item.nuevaVariante,
-                        ubicacion: nuevaUbicacion,
-                        stockFisico: item.cantidad,
-                        stockBloqueado: 0
-                    });
-                }
+                inventario.push({
+                    variante: item.nuevaVariante,
+                    ubicacion: nuevaUbicacion,
+                    stockFisico: item.cantidad,
+                    stockBloqueado: 0
+                });
             }
 
             cerrarModal('modalReclasificar');
