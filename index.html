@@ -95,6 +95,8 @@
         .icon-btn:hover { opacity: 0.8; transform: translateY(-1px); }
         .search-box { width: 100%; max-width: 400px; margin-bottom: 1rem; }
         .modal-search-box { width: 100%; margin-bottom: 1rem; }
+        .filtros-container { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; align-items: center; }
+        .filtros-container .form-group { margin: 0; min-width: 180px; flex: 1; }
     </style>
 </head>
 <body>
@@ -238,10 +240,40 @@
                         <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem;">
                             <button class="btn btn-primary" onclick="mostrarModal('modalProductosSystem')">Subir Productos System (Excel)</button>
                             <button class="btn btn-outline" onclick="verificarDiscrepancias()">Verificar Discrepancias</button>
+                            <button class="btn btn-warning" onclick="limpiarFiltros()">🗑️ Limpiar Filtros</button>
                         </div>
-                        <div class="form-group">
-                            <input type="text" class="form-control" placeholder="Buscar en Productos System..." id="buscarProductosSystem" oninput="debounceSearchProductos()">
+                        
+                        <div class="filtros-container">
+                            <div class="form-group">
+                                <input type="text" class="form-control" placeholder="🔍 Buscar..." id="buscarProductosSystem" oninput="debounceSearchProductos()">
+                            </div>
+                            <div class="form-group">
+                                <select class="form-control" id="filtroGenero" onchange="aplicarFiltrosProductos()">
+                                    <option value="">Todos los Géneros</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <select class="form-control" id="filtroLinea" onchange="aplicarFiltrosProductos()">
+                                    <option value="">Todas las Líneas</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <select class="form-control" id="filtroTemporada" onchange="aplicarFiltrosProductos()">
+                                    <option value="">Todas las Temporadas</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <select class="form-control" id="filtroMarca" onchange="aplicarFiltrosProductos()">
+                                    <option value="">Todas las Marcas</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <select class="form-control" id="filtroMundo" onchange="aplicarFiltrosProductos()">
+                                    <option value="">Todos los Mundos</option>
+                                </select>
+                            </div>
                         </div>
+
                         <div id="discrepanciasAlert"></div>
                         <div class="table-container">
                             <table class="table">
@@ -785,6 +817,7 @@
             paginaProductosSystem = 1;
             actualizarDashboard();
             renderizarInventario();
+            cargarFiltrosProductos();
             renderizarProductosSystem();
             renderizarOrdenes();
             renderizarPicking();
@@ -909,6 +942,7 @@
             paginaProductosSystem = 1;
             actualizarDashboard();
             renderizarInventario();
+            cargarFiltrosProductos();
             renderizarProductosSystem();
             renderizarOrdenes();
             renderizarPicking();
@@ -972,17 +1006,20 @@
                     genero: row[7] || '',
                     color: row[8] || '',
                     temporada: row[9] || '',
-                    kardex: parseFloat(row[10]) || 0
+                    kardex: parseFloat(row[10]) || 0,
+                    linea: row[11] || '',
+                    mundo: row[12] || ''
                 });
             }
         }
 
         async function guardarProductosSystemSheets() {
             const valores = [
-                ['variante', 'codigoComercial', 'descripcion', 'pvp', 'stkFin', 'marca', 'talla', 'genero', 'color', 'temporada', 'kardex'],
+                ['variante', 'codigoComercial', 'descripcion', 'pvp', 'stkFin', 'marca', 'talla', 'genero', 'color', 'temporada', 'kardex', 'linea', 'mundo'],
                 ...productosSystem.map(p => [
                     p.variante, p.codigoComercial, p.descripcion, p.pvp, p.stkFin,
-                    p.marca, p.talla, p.genero, p.color, p.temporada, p.kardex || 0
+                    p.marca, p.talla, p.genero, p.color, p.temporada, p.kardex || 0,
+                    p.linea || '', p.mundo || ''
                 ])
             ];
             await escribirHoja('productosSystem', valores);
@@ -1344,7 +1381,7 @@
             const ubicaciones = inventario.filter(i => i.variante === variante).map(i => `${i.ubicacion} (${i.stockFisico} unidades)`).join(', ');
 
             document.getElementById('infoProductoCompleta').innerHTML = `
-                <div style="display: grid; gap: 1rem;">
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem;">
                     <div><strong>Variante:</strong> ${producto.variante}</div>
                     <div><strong>Código Comercial:</strong> ${producto.codigoComercial}</div>
                     <div><strong>Descripción:</strong> ${producto.descripcion}</div>
@@ -1352,11 +1389,14 @@
                     <div><strong>Talla:</strong> ${producto.talla}</div>
                     <div><strong>Color:</strong> ${producto.color}</div>
                     <div><strong>Género:</strong> ${producto.genero}</div>
+                    <div><strong>Línea:</strong> ${producto.linea || 'N/A'}</div>
+                    <div><strong>Mundo:</strong> ${producto.mundo || 'N/A'}</div>
                     <div><strong>Temporada:</strong> ${producto.temporada}</div>
                     <div><strong>PVP:</strong> S/ ${producto.pvp.toFixed(2)}</div>
+                    <div><strong>Kardex:</strong> S/ ${producto.kardex.toFixed(2)}</div>
                     <div><strong>Stock Sistema (Stk Fin):</strong> ${producto.stkFin}</div>
                     <div><strong>Stock Físico:</strong> ${stockFisico}</div>
-                    <div><strong>Ubicaciones:</strong> ${ubicaciones || 'Sin ubicaciones'}</div>
+                    <div style="grid-column: 1 / -1;"><strong>Ubicaciones:</strong><br>${ubicaciones || 'Sin ubicaciones'}</div>
                 </div>
             `;
             mostrarModal('modalVisualizarProducto');
@@ -1425,8 +1465,7 @@
                         const BATCH_SIZE = 5000;
 
                         document.getElementById('loadingText').textContent = `Procesando ${totalRows} filas...`;
-                        
-                        for (let i = 0; i < jsonData.length; i += BATCH_SIZE) {
+for (let i = 0; i < jsonData.length; i += BATCH_SIZE) {
                             const batch = jsonData.slice(i, i + BATCH_SIZE);
                             for (const row of batch) {
                                 const variante = String(row.Variante || row.variante || '').trim();
@@ -1678,17 +1717,70 @@
             mostrarToast('Inventario exportado', 'success');
         }
 
+        function cargarFiltrosProductos() {
+            const generos = [...new Set(productosSystem.map(p => p.genero).filter(Boolean))].sort();
+            const lineas = [...new Set(productosSystem.map(p => p.linea).filter(Boolean))].sort();
+            const temporadas = [...new Set(productosSystem.map(p => p.temporada).filter(Boolean))].sort();
+            const marcas = [...new Set(productosSystem.map(p => p.marca).filter(Boolean))].sort();
+            const mundos = [...new Set(productosSystem.map(p => p.mundo).filter(Boolean))].sort();
+
+            document.getElementById('filtroGenero').innerHTML = '<option value="">Todos los Géneros</option>' + 
+                generos.map(g => `<option value="${g}">${g}</option>`).join('');
+            
+            document.getElementById('filtroLinea').innerHTML = '<option value="">Todas las Líneas</option>' + 
+                lineas.map(l => `<option value="${l}">${l}</option>`).join('');
+            
+            document.getElementById('filtroTemporada').innerHTML = '<option value="">Todas las Temporadas</option>' + 
+                temporadas.map(t => `<option value="${t}">${t}</option>`).join('');
+            
+            document.getElementById('filtroMarca').innerHTML = '<option value="">Todas las Marcas</option>' + 
+                marcas.map(m => `<option value="${m}">${m}</option>`).join('');
+            
+            document.getElementById('filtroMundo').innerHTML = '<option value="">Todos los Mundos</option>' + 
+                mundos.map(m => `<option value="${m}">${m}</option>`).join('');
+        }
+
+        function limpiarFiltros() {
+            document.getElementById('buscarProductosSystem').value = '';
+            document.getElementById('filtroGenero').value = '';
+            document.getElementById('filtroLinea').value = '';
+            document.getElementById('filtroTemporada').value = '';
+            document.getElementById('filtroMarca').value = '';
+            document.getElementById('filtroMundo').value = '';
+            aplicarFiltrosProductos();
+        }
+
+        function aplicarFiltrosProductos() {
+            paginaProductosSystem = 1;
+            renderizarProductosSystem();
+        }
+
         function renderizarProductosSystem() {
             const busqueda = document.getElementById('buscarProductosSystem')?.value.toLowerCase() || '';
-            const filtrado = productosSystem.filter(prod => 
-                prod.variante.toLowerCase().includes(busqueda) ||
-                prod.codigoComercial.toLowerCase().includes(busqueda) ||
-                prod.descripcion.toLowerCase().includes(busqueda) ||
-                prod.marca.toLowerCase().includes(busqueda) ||
-                prod.talla.toLowerCase().includes(busqueda) ||
-                prod.color.toLowerCase().includes(busqueda) ||
-                prod.genero.toLowerCase().includes(busqueda)
-            );
+            const filtroGenero = document.getElementById('filtroGenero')?.value || '';
+            const filtroLinea = document.getElementById('filtroLinea')?.value || '';
+            const filtroTemporada = document.getElementById('filtroTemporada')?.value || '';
+            const filtroMarca = document.getElementById('filtroMarca')?.value || '';
+            const filtroMundo = document.getElementById('filtroMundo')?.value || '';
+
+            const filtrado = productosSystem.filter(prod => {
+                const cumpleBusqueda = !busqueda || 
+                    prod.variante.toLowerCase().includes(busqueda) ||
+                    prod.codigoComercial.toLowerCase().includes(busqueda) ||
+                    prod.descripcion.toLowerCase().includes(busqueda) ||
+                    prod.marca.toLowerCase().includes(busqueda) ||
+                    prod.talla.toLowerCase().includes(busqueda) ||
+                    prod.color.toLowerCase().includes(busqueda) ||
+                    prod.genero.toLowerCase().includes(busqueda);
+
+                const cumpleGenero = !filtroGenero || prod.genero === filtroGenero;
+                const cumpleLinea = !filtroLinea || prod.linea === filtroLinea;
+                const cumpleTemporada = !filtroTemporada || prod.temporada === filtroTemporada;
+                const cumpleMarca = !filtroMarca || prod.marca === filtroMarca;
+                const cumpleMundo = !filtroMundo || prod.mundo === filtroMundo;
+
+                return cumpleBusqueda && cumpleGenero && cumpleLinea && cumpleTemporada && cumpleMarca && cumpleMundo;
+            });
 
             const totalPaginas = Math.ceil(filtrado.length / ITEMS_POR_PAGINA);
             const inicio = (paginaProductosSystem - 1) * ITEMS_POR_PAGINA;
@@ -1757,11 +1849,14 @@
                             genero: row.Genero || row.genero || '',
                             color: row.COLOR || row.color || '',
                             temporada: row.TEMPORADA_MUNDO || row.temporada || '',
-                            kardex: parseFloat(row.Kardex || row.kardex || 0)
+                            kardex: parseFloat(row.Kardex || row.kardex || 0),
+                            linea: row.Linea || row.linea || row.LINEA || '',
+                            mundo: row.Mundo || row.mundo || row.MUNDO || ''
                         }));
 
                         await guardarProductosSystemSheets();
                         mostrarToast(`${productosSystem.length} productos cargados`, 'success');
+                        cargarFiltrosProductos();
                         renderizarProductosSystem();
                         verificarDiscrepancias();
                     } catch (error) {
