@@ -347,7 +347,7 @@
                         <h3 class="card-title">Reclasificación de Productos</h3>
                         <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem; align-items: center; flex-wrap: wrap;">
                             <div class="form-group" style="margin: 0; flex: 1; min-width: 250px;">
-                                <input type="text" class="form-control" placeholder="Buscar por ID, Orden, Variante..." id="buscarReclasificacion" oninput="debounceSearchReclasificacion()">
+                                <input type="text" class="form-control" placeholder="Buscar por Orden, Variante..." id="buscarReclasificacion" oninput="debounceSearchReclasificacion()">
                             </div>
                             <div class="form-group" style="margin: 0; min-width: 200px;">
                                 <select class="form-control" id="filtroEstadoReclasificacion" onchange="renderizarReclasificacion()">
@@ -361,7 +361,6 @@
                             <table class="table">
                                 <thead>
                                     <tr>
-                                        <th>ID</th>
                                         <th>Orden</th>
                                         <th>Variante Original</th>
                                         <th>Ubicación Original</th>
@@ -3032,9 +3031,6 @@
             
             document.getElementById('contenidoComentario').innerHTML = `
                 <div style="margin-bottom: 1rem;">
-                    <strong style="color: var(--text-secondary); font-size: 0.875rem;">ID: ${item.id}</strong>
-                </div>
-                <div style="margin-bottom: 1rem;">
                     <strong style="color: var(--text-secondary); font-size: 0.875rem;">Variante:</strong> ${item.varianteOriginal}
                 </div>
                 <div style="margin-bottom: 1rem;">
@@ -3100,7 +3096,6 @@
             
             if (busqueda) {
                 itemsFiltrados = itemsFiltrados.filter(item => 
-                    item.id.toLowerCase().includes(busqueda) ||
                     item.ordenId.toLowerCase().includes(busqueda) ||
                     item.varianteOriginal.toLowerCase().includes(busqueda) ||
                     (item.ubicacionOriginal && item.ubicacionOriginal.toLowerCase().includes(busqueda))
@@ -3118,7 +3113,6 @@
 
                 return `
                     <tr>
-                        <td>${item.id}</td>
                         <td>${item.ordenId}</td>
                         <td><strong>${item.varianteOriginal}</strong></td>
                         <td>${item.ubicacionOriginal || 'N/A'}</td>
@@ -3145,7 +3139,7 @@
             if (itemsFiltrados.length === 0) {
                 document.getElementById('reclasificacionTableBody').innerHTML = `
                     <tr>
-                        <td colspan="9" style="text-align: center; padding: 2rem; color: var(--text-secondary);">
+                        <td colspan="8" style="text-align: center; padding: 2rem; color: var(--text-secondary);">
                             No se encontraron registros
                         </td>
                     </tr>
