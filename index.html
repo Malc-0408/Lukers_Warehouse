@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SICIT v5.1 - Sistema de Inventario Lukers</title>
+    <title>SICIT v5.1 - Sistema Lukers</title>
     
     <script src="https://apis.google.com/js/api.js"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -97,6 +97,16 @@
         .modal-search-box { width: 100%; margin-bottom: 1rem; }
         .filtros-container { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; align-items: center; }
         .filtros-container .form-group { margin: 0; min-width: 180px; flex: 1; }
+        
+        /* Estilos para el menú desplegable de acciones */
+        .dropdown-menu-container { position: relative; display: inline-block; }
+        .dropdown-toggle { background: var(--bg-primary); border: 1px solid var(--border); padding: 0.25rem 0.5rem; border-radius: 0.375rem; cursor: pointer; font-size: 1.25rem; font-weight: bold; color: var(--text-primary); transition: all 0.2s; }
+        .dropdown-toggle:hover { background: var(--border); }
+        .dropdown-menu { position: absolute; right: 0; top: 100%; margin-top: 0.25rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 0.5rem; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); min-width: 200px; z-index: 100; display: none; }
+        .dropdown-menu.active { display: block; }
+        .dropdown-item { padding: 0.75rem 1rem; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; border-bottom: 1px solid var(--border); }
+        .dropdown-item:last-child { border-bottom: none; }
+        .dropdown-item:hover { background: var(--bg-primary); }
     </style>
 </head>
 <body>
@@ -285,7 +295,7 @@
                                         <th>Descripción</th>
                                         <th>Marca</th>
                                         <th>Talla</th>
-                                        <th>PVP</th>
+                                        <th>PVP (S/)</th>
                                         <th>Stk Fin (Sistema)</th>
                                         <th>Stock Físico</th>
                                         <th>Estado</th>
@@ -762,6 +772,29 @@
         let searchPickingTimeout = null;
         let searchReclasificacionTimeout = null;
         let detallesPickingCompletos = [];
+
+        // Cerrar dropdowns al hacer clic fuera
+        document.addEventListener('click', function(event) {
+            if (!event.target.closest('.dropdown-menu-container')) {
+                document.querySelectorAll('.dropdown-menu').forEach(menu => {
+                    menu.classList.remove('active');
+                });
+            }
+        });
+
+        function toggleDropdown(ordenId, event) {
+            event.stopPropagation();
+            const dropdown = document.getElementById(`dropdown-${ordenId}`);
+            
+            // Cerrar otros dropdowns
+            document.querySelectorAll('.dropdown-menu').forEach(menu => {
+                if (menu.id !== `dropdown-${ordenId}`) {
+                    menu.classList.remove('active');
+                }
+            });
+            
+            dropdown.classList.toggle('active');
+        }
 
         function gapiLoaded() {
             gapi.load('client', initializeGapiClient);
@@ -1880,7 +1913,7 @@
                         <td>${prod.descripcion}</td>
                         <td>${prod.marca}</td>
                         <td>${prod.talla}</td>
-                        <td>S/ ${prod.pvp.toFixed(2)}</td>
+                        <td>${prod.pvp.toFixed(2)}</td>
                         <td>${prod.stkFin}</td>
                         <td>${stockFisico}</td>
                         <td><span class="badge badge-${colorEstado}">${estado}</span></td>
@@ -2423,12 +2456,30 @@
                         <td><strong style="color: var(--success);">${totalAtendido}</strong></td>
                         <td><strong style="color: var(--primary);">${monto}</strong></td>
                         <td><span class="badge badge-${colorEstado}">${orden.estado}</span></td>
-                        <td style="white-space: nowrap;">
-                            <button class="btn btn-outline" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" onclick="descargarHojaPicking('${orden.id}')">📥 Picking</button>
-                            ${orden.estado === 'Pendiente Packing' || orden.estado === 'Completada' ? `<button class="btn btn-outline" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" onclick="descargarHojaPacking('${orden.id}')">📥 Packing</button>` : ''}
-                            ${orden.variantesSinStock && orden.variantesSinStock.length > 0 ? `<button class="btn btn-warning" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" onclick="verReporteFaltantes('${orden.id}')">⚠️ Sin Stock</button>` : ''}
-                            ${puedeEditar ? `<button class="btn btn-warning" style="padding: 0.25rem 0.5rem; font-size: 1rem;" onclick="editarOrden('${orden.id}')" title="Editar">✏️</button>` : ''}
-                            ${puedeEditar ? `<button class="btn btn-danger" style="padding: 0.25rem 0.5rem; font-size: 1rem;" onclick="eliminarOrden('${orden.id}')" title="Eliminar">🗑️</button>` : ''}
+                        <td>
+                            <div class="dropdown-menu-container">
+                                <button class="dropdown-toggle" onclick="toggleDropdown('${orden.id}', event)">⋮</button>
+                                <div class="dropdown-menu" id="dropdown-${orden.id}">
+                                    <div class="dropdown-item" onclick="descargarHojaPicking('${orden.id}')">
+                                        📥 Descargar Picking
+                                    </div>
+                                    ${orden.estado === 'Pendiente Packing' || orden.estado === 'Completada' ? `
+                                    <div class="dropdown-item" onclick="descargarHojaPacking('${orden.id}')">
+                                        📥 Descargar Packing
+                                    </div>` : ''}
+                                    ${orden.variantesSinStock && orden.variantesSinStock.length > 0 ? `
+                                    <div class="dropdown-item" onclick="verReporteFaltantes('${orden.id}')">
+                                        ⚠️ Ver Sin Stock
+                                    </div>` : ''}
+                                    ${puedeEditar ? `
+                                    <div class="dropdown-item" onclick="editarOrden('${orden.id}')">
+                                        ✏️ Editar Orden
+                                    </div>
+                                    <div class="dropdown-item" onclick="eliminarOrden('${orden.id}')" style="color: var(--danger);">
+                                        🗑️ Eliminar Orden
+                                    </div>` : ''}
+                                </div>
+                            </div>
                         </td>
                     </tr>
                 `;
