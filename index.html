@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SICIT v5.1 - Sistema Lukers</title>
+    <title>SICIT v5.2 - Sistema Lukers</title>
     
     <script src="https://apis.google.com/js/api.js"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -42,6 +42,7 @@
         .btn-warning { background: var(--warning); color: white; }
         .btn-outline { background: transparent; border: 2px solid var(--primary); color: var(--primary); }
         .btn:hover { opacity: 0.9; transform: translateY(-1px); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
         .table-container { background: var(--bg-card); border-radius: 0.75rem; overflow: auto; box-shadow: var(--shadow); max-height: 600px; }
         .pagination { display: flex; justify-content: center; align-items: center; gap: 0.5rem; margin-top: 1rem; }
         .pagination button { padding: 0.5rem 1rem; border: 1px solid var(--border); background: var(--bg-card); border-radius: 0.25rem; cursor: pointer; }
@@ -59,6 +60,7 @@
         .badge-yellow { background: rgba(245, 158, 11, 0.1); color: #d97706; }
         .badge-red { background: rgba(239, 68, 68, 0.1); color: #dc2626; }
         .badge-purple { background: rgba(139, 92, 246, 0.1); color: #7c3aed; }
+        .badge-orange { background: rgba(249, 115, 22, 0.1); color: #ea580c; }
         .form-group { margin-bottom: 1rem; }
         .form-label { display: block; margin-bottom: 0.5rem; font-weight: 600; font-size: 0.875rem; }
         .form-control { width: 100%; padding: 0.625rem 1rem; border: 1px solid var(--border); border-radius: 0.5rem; background: var(--bg-card); color: var(--text-primary); }
@@ -97,8 +99,6 @@
         .modal-search-box { width: 100%; margin-bottom: 1rem; }
         .filtros-container { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; align-items: center; }
         .filtros-container .form-group { margin: 0; min-width: 180px; flex: 1; }
-        
-        /* Estilos para el menú desplegable de acciones */
         .dropdown-menu-container { position: relative; display: inline-block; }
         .dropdown-toggle { background: var(--bg-primary); border: 1px solid var(--border); padding: 0.25rem 0.5rem; border-radius: 0.375rem; cursor: pointer; font-size: 1.25rem; font-weight: bold; color: var(--text-primary); transition: all 0.2s; }
         .dropdown-toggle:hover { background: var(--border); }
@@ -107,18 +107,24 @@
         .dropdown-item { padding: 0.75rem 1rem; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; border-bottom: 1px solid var(--border); }
         .dropdown-item:last-child { border-bottom: none; }
         .dropdown-item:hover { background: var(--bg-primary); }
+        .sync-indicator { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; border-radius: 0.5rem; font-size: 0.875rem; font-weight: 600; }
+        .sync-indicator.connected { background: rgba(16, 185, 129, 0.1); color: #059669; }
+        .sync-indicator.pending { background: rgba(245, 158, 11, 0.1); color: #d97706; }
+        .sync-indicator.error { background: rgba(239, 68, 68, 0.1); color: #dc2626; }
+        .huerfana-row { background: rgba(239, 68, 68, 0.05) !important; }
+        .busqueda-manual-row { background: rgba(245, 158, 11, 0.05) !important; }
     </style>
 </head>
 <body>
     <div class="login-screen" id="loginScreen">
         <div class="login-box">
-            <h2 style="font-size: 2rem; font-weight: 700; margin-bottom: 0.5rem;">SICIT v5.1</h2>
+            <h2 style="font-size: 2rem; font-weight: 700; margin-bottom: 0.5rem;">SICIT v5.2</h2>
             <p style="color: var(--text-secondary); margin-bottom: 2rem;">Sistema Lukers - Inicia sesión con Google</p>
             <button onclick="handleAuthClick()" class="btn btn-primary" style="padding: 1rem 2rem; font-size: 1.125rem; width: 100%;">
                 Iniciar Sesión con Google
             </button>
             <p style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 1rem;">
-                Se requiere acceso a Google Sheets
+                Se requiere acceso a Google Sheets y Gmail
             </p>
         </div>
     </div>
@@ -126,7 +132,7 @@
     <div class="app-container hidden" id="appContainer">
         <div class="sidebar">
             <div class="sidebar-header">
-                <h1 class="sidebar-title">SICIT v5.1</h1>
+                <h1 class="sidebar-title">SICIT v5.2</h1>
                 <p style="font-size: 0.875rem; opacity: 0.8;">Sistema Lukers</p>
             </div>
             <nav class="nav-menu" id="navMenu"></nav>
@@ -142,13 +148,19 @@
         <div class="main-content">
             <header class="header">
                 <h2 class="header-title" id="pageTitle">Dashboard</h2>
-                <div style="display: flex; gap: 1rem;">
-                    <button class="btn btn-success" onclick="sincronizarDatos()">Sincronizar</button>
+                <div style="display: flex; gap: 1rem; align-items: center;">
+                    <div id="syncIndicator" class="sync-indicator connected">
+                        🟢 Conectado
+                    </div>
+                    <button class="btn btn-success" onclick="sincronizarDatos()" id="btnSincronizar">Sincronizar</button>
                 </div>
             </header>
 
             <div class="content-area">
                 <div class="view-section active" id="view-dashboard">
+                    <div id="alertasOrdenesExpirando"></div>
+                    <div id="alertasVariantesHuerfanas"></div>
+                    
                     <div class="stats-grid">
                         <div class="stat-card">
                             <div class="stat-value" id="statInventario">0</div>
@@ -235,6 +247,7 @@
                                         <th>Stock Físico</th>
                                         <th>Stock Bloqueado</th>
                                         <th>Stock Disponible</th>
+                                        <th>Estado</th>
                                         <th>Acciones</th>
                                     </tr>
                                 </thead>
@@ -314,6 +327,7 @@
                         <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap;">
                             <button class="btn btn-primary" onclick="mostrarModal('modalCrearOrdenAutomatica')">🤖 Crear Orden - Modo Automático (Excel)</button>
                             <button class="btn btn-success" onclick="mostrarModal('modalCrearOrdenManual')">✋ Crear Orden - Modo Manual (Excel)</button>
+                            <button class="btn btn-warning" onclick="mostrarModal('modalLiberarOrdenesExpiradas')">🔓 Liberar Órdenes Expiradas</button>
                         </div>
                         <div class="table-container">
                             <table class="table">
@@ -322,6 +336,7 @@
                                         <th>ID Orden</th>
                                         <th>Nombre</th>
                                         <th>Fecha y Hora Creación</th>
+                                        <th>Días</th>
                                         <th>Total Solicitado</th>
                                         <th>Total Atendido</th>
                                         <th>Monto</th>
@@ -712,6 +727,106 @@
         </div>
     </div>
 
+    <div class="modal-overlay" id="modalVerComentario">
+        <div class="modal" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3 class="modal-title">Comentario de Packing</h3>
+                <button onclick="cerrarModal('modalVerComentario')" style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">×</button>
+            </div>
+            <div id="contenidoComentario" style="padding: 1rem; background: var(--bg-primary); border-radius: 0.5rem; min-height: 100px;"></div>
+            <div style="margin-top: 1.5rem;">
+                <button type="button" class="btn btn-primary" onclick="cerrarModal('modalVerComentario')" style="width: 100%;">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modalVariantesHuerfanas">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">⚠️ Variantes Huérfanas - Corrección</h3>
+                <button onclick="cerrarModal('modalVariantesHuerfanas')" style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">×</button>
+            </div>
+            <div class="alert alert-danger">
+                <strong>Las siguientes variantes existen en inventario pero NO en Productos System.</strong><br>
+                Para cada una, se muestran sugerencias basadas en su genérico (primeros 10 dígitos).
+            </div>
+            <div id="contenidoVariantesHuerfanas"></div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modalCorregirHuerfana">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Corregir Variante Huérfana</h3>
+                <button onclick="cerrarModal('modalCorregirHuerfana')" style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">×</button>
+            </div>
+            <input type="hidden" id="varianteErronea">
+            <input type="hidden" id="ubicacionHuerfana">
+            <div id="infoHuerfana" style="background: var(--bg-primary); padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem;"></div>
+            <div class="form-group">
+                <label class="form-label">Seleccionar Variante Correcta *</label>
+                <select class="form-control" id="varianteCorrecta" required>
+                    <option value="">Seleccionar...</option>
+                </select>
+            </div>
+            <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1.5rem;">
+                <button type="button" class="btn btn-outline" onclick="cerrarModal('modalCorregirHuerfana')">Cancelar</button>
+                <button type="button" class="btn btn-success" onclick="aplicarCorreccionHuerfana()">Corregir</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modalAdvertenciasKardex">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">⚠️ Advertencia: Productos sin Kardex</h3>
+                <button onclick="cerrarModal('modalAdvertenciasKardex')" style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">×</button>
+            </div>
+            <div class="alert alert-warning">
+                <strong>Se encontraron productos con Kardex en 0 o inválido.</strong><br>
+                Esto resultará en montos S/ 0.00 al cerrar órdenes con estas variantes.
+            </div>
+            <div id="contenidoAdvertenciasKardex" style="max-height: 400px; overflow-y: auto;"></div>
+            <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1.5rem;">
+                <button type="button" class="btn btn-outline" onclick="cancelarSubidaProductos()">Cancelar y Corregir</button>
+                <button type="button" class="btn btn-warning" onclick="continuarSubidaProductos()">Continuar de Todos Modos</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modalLiberarOrdenesExpiradas">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">🔓 Liberar Órdenes Expiradas</h3>
+                <button onclick="cerrarModal('modalLiberarOrdenesExpiradas')" style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">×</button>
+            </div>
+            <div id="contenidoOrdenesExpiradas"></div>
+            <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1.5rem;">
+                <button type="button" class="btn btn-outline" onclick="cerrarModal('modalLiberarOrdenesExpiradas')">Cancelar</button>
+                <button type="button" class="btn btn-danger" onclick="ejecutarLiberacionOrdenes()">Liberar Seleccionadas</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modalExtenderOrden">
+        <div class="modal" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3 class="modal-title">⏰ Extender Plazo de Orden</h3>
+                <button onclick="cerrarModal('modalExtenderOrden')" style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">×</button>
+            </div>
+            <input type="hidden" id="ordenIdExtender">
+            <div id="infoOrdenExtender"></div>
+            <div class="form-group">
+                <label class="form-label">Días adicionales *</label>
+                <input type="number" class="form-control" id="diasExtension" min="1" max="30" value="7">
+            </div>
+            <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1.5rem;">
+                <button type="button" class="btn btn-outline" onclick="cerrarModal('modalExtenderOrden')">Cancelar</button>
+                <button type="button" class="btn btn-success" onclick="aplicarExtensionOrden()">Extender Plazo</button>
+            </div>
+        </div>
+    </div>
+
     <div class="modal-overlay" id="loadingOverlay">
         <div style="background: var(--bg-card); padding: 3rem; border-radius: 1rem; text-align: center; min-width: 400px;">
             <div class="loading-spinner"></div>
@@ -726,26 +841,16 @@
         </div>
     </div>
 
-    <div class="modal-overlay" id="modalVerComentario">
-        <div class="modal" style="max-width: 500px;">
-            <div class="modal-header">
-                <h3 class="modal-title">Comentario de Packing</h3>
-                <button onclick="cerrarModal('modalVerComentario')" style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">×</button>
-            </div>
-            <div id="contenidoComentario" style="padding: 1rem; background: var(--bg-primary); border-radius: 0.5rem; min-height: 100px;"></div>
-            <div style="margin-top: 1.5rem;">
-                <button type="button" class="btn btn-primary" onclick="cerrarModal('modalVerComentario')" style="width: 100%;">Cerrar</button>
-            </div>
-        </div>
-    </div>
-
     <div class="toast" id="toast"></div>
 
     <script>
+        // ============================================
+        // CONFIGURACIÓN Y CONSTANTES
+        // ============================================
         const GOOGLE_CONFIG = {
             CLIENT_ID: '309993250500-otauf9c2kjib3bmf8btu9baqmmkm4sur.apps.googleusercontent.com',
             SPREADSHEET_ID: '1_OoyX3z5Itpe5VTx-zFbYnNqM-WNeqVuiB6QszHuTWU',
-            SCOPES: 'https://www.googleapis.com/auth/spreadsheets'
+            SCOPES: 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/gmail.send'
         };
 
         const TIENDAS_LUKERS = [
@@ -754,6 +859,15 @@
             'LUKERS MENDIOLA', 'LUKERS ALFONSO UGARTE', 'LUKERS IQT LORES', 'LUKERS JIRON'
         ];
 
+        // Sistema de expiración de órdenes
+        const DIAS_EXPIRACION_ORDEN = 7;
+        const DIAS_ALERTA_TEMPRANA = 3;
+
+        // Sistema de sincronización
+        const MAX_REINTENTOS = 3;
+        const DELAY_BASE_MS = 1000;
+
+        // Variables globales
         let gapiInited = false;
         let gisInited = false;
         let tokenClient;
@@ -763,6 +877,9 @@
         let ordenes = [];
         let itemsReclasificacion = [];
         let variantesFaltantesActual = [];
+        let variantesHuerfanasCache = [];
+        let colaSincronizacion = [];
+        let intentandoSincronizar = false;
         let cargaMasivaEnProceso = false;
         let paginaInventario = 1;
         let paginaProductosSystem = 1;
@@ -772,8 +889,724 @@
         let searchPickingTimeout = null;
         let searchReclasificacionTimeout = null;
         let detallesPickingCompletos = [];
+        let productosSystemPendientes = null;
+        let correoUsuario = '';
 
-        // Cerrar dropdowns al hacer clic fuera
+        // ============================================
+        // FUNCIONES DE UTILIDAD
+        // ============================================
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        function bloquearUI() {
+            const overlay = document.getElementById('loadingOverlay');
+            overlay.style.pointerEvents = 'all';
+            overlay.style.zIndex = '10000';
+            document.body.style.pointerEvents = 'none';
+            document.querySelectorAll('.modal-overlay').forEach(m => {
+                if (m.id !== 'loadingOverlay') {
+                    m.style.pointerEvents = 'none';
+                }
+            });
+        }
+
+        function desbloquearUI() {
+            const overlay = document.getElementById('loadingOverlay');
+            overlay.style.pointerEvents = 'auto';
+            document.body.style.pointerEvents = 'auto';
+            document.querySelectorAll('.modal-overlay').forEach(m => m.style.pointerEvents = 'auto');
+        }
+
+        function extraerGenerico(variante) {
+            if (!variante || variante.length < 10) return null;
+            return variante.substring(0, 10);
+        }
+
+        function formatearFechaPeru(fecha) {
+            return new Date(fecha).toLocaleString('es-PE', {
+                timeZone: 'America/Lima',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false
+            });
+        }
+
+        function parsearFechaPeru(fechaString) {
+            if (fechaString instanceof Date) return fechaString;
+            const fecha = new Date(fechaString);
+            return isNaN(fecha.getTime()) ? new Date() : fecha;
+        }
+
+        function diasTranscurridos(fecha) {
+            const ahora = new Date();
+            const fechaOrden = new Date(fecha);
+            const diffMs = ahora - fechaOrden;
+            return Math.floor(diffMs / (1000 * 60 * 60 * 24));
+        }
+
+        // ============================================
+        // SISTEMA DE NOTIFICACIONES POR CORREO
+        // ============================================
+        async function enviarCorreo(destinatario, asunto, cuerpoHtml) {
+            try {
+                const mensaje = [
+                    'Content-Type: text/html; charset=utf-8',
+                    'MIME-Version: 1.0',
+                    `To: ${destinatario}`,
+                    `Subject: ${asunto}`,
+                    '',
+                    cuerpoHtml
+                ].join('\r\n');
+
+                const mensajeCodificado = btoa(unescape(encodeURIComponent(mensaje)))
+                    .replace(/\+/g, '-')
+                    .replace(/\//g, '_')
+                    .replace(/=+$/, '');
+
+                await gapi.client.gmail.users.messages.send({
+                    userId: 'me',
+                    resource: {
+                        raw: mensajeCodificado
+                    }
+                });
+
+                return true;
+            } catch (error) {
+                console.error('Error al enviar correo:', error);
+                return false;
+            }
+        }
+
+        async function notificarOrdenProximaExpirar(orden, diasRestantes) {
+            if (!correoUsuario) return;
+            
+            const asunto = `⚠️ SICIT - Orden ${orden.id} expira en ${diasRestantes} días`;
+            
+            const cuerpoHtml = `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                    <div style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; padding: 20px; border-radius: 10px 10px 0 0;">
+                        <h2 style="margin: 0;">⚠️ Alerta de Expiración - SICIT</h2>
+                    </div>
+                    <div style="background: #f8fafc; padding: 20px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 10px 10px;">
+                        <h3 style="color: #1e293b;">Orden próxima a expirar</h3>
+                        <p style="color: #64748b;">La siguiente orden está próxima a expirar y su stock será liberado automáticamente:</p>
+                        
+                        <div style="background: white; padding: 15px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #f59e0b;">
+                            <p style="margin: 5px 0;"><strong>ID:</strong> ${orden.id}</p>
+                            <p style="margin: 5px 0;"><strong>Nombre:</strong> ${orden.nombre || 'Sin nombre'}</p>
+                            <p style="margin: 5px 0;"><strong>Estado:</strong> ${orden.estado}</p>
+                            <p style="margin: 5px 0;"><strong>Total Unidades:</strong> ${orden.totalUnidades}</p>
+                            <p style="margin: 5px 0;"><strong>Fecha Creación:</strong> ${formatearFechaPeru(orden.fecha)}</p>
+                            <p style="margin: 5px 0; color: #f59e0b;"><strong>Días restantes:</strong> ${diasRestantes}</p>
+                        </div>
+
+                        <div style="background: #fef3c7; padding: 12px; border-radius: 6px; margin: 15px 0;">
+                            <p style="margin: 0; color: #92400e; font-size: 14px;">
+                                <strong>⏰ Acción requerida:</strong> Si necesitas más tiempo, puedes extender el plazo desde el sistema SICIT.
+                            </p>
+                        </div>
+
+                        <p style="color: #64748b; font-size: 14px; margin-top: 20px;">
+                            Este es un correo automático del Sistema SICIT. Por favor no respondas a este mensaje.
+                        </p>
+                    </div>
+                </div>
+            `;
+            
+            await enviarCorreo(correoUsuario, asunto, cuerpoHtml);
+        }
+
+        async function notificarOrdenExpirada(orden) {
+            if (!correoUsuario) return;
+            
+            const asunto = `🔴 SICIT - Orden ${orden.id} ha expirado y fue liberada`;
+            
+            const cuerpoHtml = `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                    <div style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; padding: 20px; border-radius: 10px 10px 0 0;">
+                        <h2 style="margin: 0;">🔴 Orden Expirada - SICIT</h2>
+                    </div>
+                    <div style="background: #f8fafc; padding: 20px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 10px 10px;">
+                        <h3 style="color: #1e293b;">Orden liberada automáticamente</h3>
+                        <p style="color: #64748b;">La siguiente orden ha expirado y su stock bloqueado ha sido liberado:</p>
+                        
+                        <div style="background: white; padding: 15px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #ef4444;">
+                            <p style="margin: 5px 0;"><strong>ID:</strong> ${orden.id}</p>
+                            <p style="margin: 5px 0;"><strong>Nombre:</strong> ${orden.nombre || 'Sin nombre'}</p>
+                            <p style="margin: 5px 0;"><strong>Total Unidades Liberadas:</strong> ${orden.totalUnidades}</p>
+                            <p style="margin: 5px 0;"><strong>Fecha Creación:</strong> ${formatearFechaPeru(orden.fecha)}</p>
+                            <p style="margin: 5px 0;"><strong>Fecha Expiración:</strong> ${formatearFechaPeru(new Date())}</p>
+                        </div>
+
+                        <div style="background: #fef2f2; padding: 12px; border-radius: 6px; margin: 15px 0;">
+                            <p style="margin: 0; color: #991b1b; font-size: 14px;">
+                                <strong>📌 Nota:</strong> El stock bloqueado ha sido liberado y está nuevamente disponible para otras órdenes.
+                            </p>
+                        </div>
+
+                        <p style="color: #64748b; font-size: 14px; margin-top: 20px;">
+                            Este es un correo automático del Sistema SICIT. Por favor no respondas a este mensaje.
+                        </p>
+                    </div>
+                </div>
+            `;
+            
+            await enviarCorreo(correoUsuario, asunto, cuerpoHtml);
+        }
+
+        // ============================================
+        // SISTEMA DE EXPIRACIÓN DE ÓRDENES
+        // ============================================
+        async function verificarOrdenesExpiradas() {
+            const ordenesExpiradas = [];
+            const ordenesProximasExpirar = [];
+            
+            for (const orden of ordenes) {
+                if (orden.estado !== 'Pendiente Picking' && orden.estado !== 'En Picking') continue;
+                
+                const dias = diasTranscurridos(orden.fecha);
+                const diasRestantes = DIAS_EXPIRACION_ORDEN - dias;
+                
+                if (diasRestantes <= 0) {
+                    ordenesExpiradas.push(orden);
+                } else if (diasRestantes <= DIAS_ALERTA_TEMPRANA && !orden.alertaEnviada) {
+                    ordenesProximasExpirar.push(orden);
+                }
+            }
+
+            // Liberar órdenes expiradas
+            for (const orden of ordenesExpiradas) {
+                await liberarOrdenExpirada(orden);
+                await notificarOrdenExpirada(orden);
+            }
+
+            // Notificar órdenes próximas a expirar
+            for (const orden of ordenesProximasExpirar) {
+                const diasRestantes = DIAS_EXPIRACION_ORDEN - diasTranscurridos(orden.fecha);
+                await notificarOrdenProximaExpirar(orden, diasRestantes);
+                orden.alertaEnviada = true;
+            }
+
+            if (ordenesExpiradas.length > 0) {
+                await guardarOrdenesSheets();
+                await guardarInventarioSheets();
+                mostrarToast(`${ordenesExpiradas.length} órdenes expiradas fueron liberadas automáticamente`, 'warning');
+                renderizarInventario();
+                renderizarOrdenes();
+                renderizarPicking();
+                actualizarDashboard();
+            }
+        }
+
+        async function liberarOrdenExpirada(orden) {
+            // Liberar stock bloqueado
+            for (const item of orden.items) {
+                for (const ub of item.ubicaciones) {
+                    const itemInv = inventario.find(i => i.variante === item.variante && i.ubicacion === ub.ubicacion);
+                    if (itemInv && itemInv.stockBloqueado > 0) {
+                        itemInv.stockBloqueado = Math.max(0, itemInv.stockBloqueado - ub.cantidad);
+                    }
+                }
+            }
+
+            orden.estado = 'Expirada';
+            orden.fechaExpiracion = new Date();
+        }
+
+        function mostrarAlertasOrdenesExpirando() {
+            const ordenesConAlerta = ordenes.filter(o => {
+                if (o.estado !== 'Pendiente Picking' && o.estado !== 'En Picking') return false;
+                const dias = diasTranscurridos(o.fecha);
+                const diasRestantes = DIAS_EXPIRACION_ORDEN - dias;
+                return diasRestantes > 0 && diasRestantes <= DIAS_ALERTA_TEMPRANA;
+            });
+
+            const container = document.getElementById('alertasOrdenesExpirando');
+            if (ordenesConAlerta.length === 0) {
+                container.innerHTML = '';
+                return;
+            }
+
+            container.innerHTML = `
+                <div class="alert alert-warning" style="cursor: pointer;" onclick="mostrarModal('modalLiberarOrdenesExpiradas')">
+                    <strong>⚠️ ${ordenesConAlerta.length} órdenes próximas a expirar</strong><br>
+                    Haz clic para ver detalles y tomar acción
+                </div>
+            `;
+        }
+
+        function mostrarModalOrdenesExpiradas() {
+            const ordenesConAlerta = ordenes.filter(o => {
+                if (o.estado !== 'Pendiente Picking' && o.estado !== 'En Picking') return false;
+                const dias = diasTranscurridos(o.fecha);
+                const diasRestantes = DIAS_EXPIRACION_ORDEN - dias;
+                return diasRestantes <= DIAS_ALERTA_TEMPRANA;
+            });
+
+            if (ordenesConAlerta.length === 0) {
+                document.getElementById('contenidoOrdenesExpiradas').innerHTML = `
+                    <div class="alert alert-success">
+                        ✅ No hay órdenes próximas a expirar
+                    </div>
+                `;
+                return;
+            }
+
+            const html = `
+                <div class="alert alert-warning">
+                    Se encontraron ${ordenesConAlerta.length} órdenes que están próximas a expirar o ya expiraron.
+                </div>
+                ${ordenesConAlerta.map(orden => {
+                    const dias = diasTranscurridos(orden.fecha);
+                    const diasRestantes = DIAS_EXPIRACION_ORDEN - dias;
+                    const expirada = diasRestantes <= 0;
+                    
+                    return `
+                        <div style="border: 1px solid var(--border); border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem; background: ${expirada ? 'rgba(239, 68, 68, 0.05)' : 'rgba(245, 158, 11, 0.05)'};">
+                            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.75rem;">
+                                <div>
+                                    <h4 style="margin: 0;">${orden.nombre || orden.id}</h4>
+                                    <p style="font-size: 0.875rem; color: var(--text-secondary); margin: 0.25rem 0 0 0;">ID: ${orden.id}</p>
+                                </div>
+                                <span class="badge ${expirada ? 'badge-red' : 'badge-yellow'}">
+                                    ${expirada ? '❌ Expirada' : `⚠️ ${diasRestantes} días restantes`}
+                                </span>
+                            </div>
+                            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; margin-bottom: 0.75rem;">
+                                <p style="margin: 0;"><strong>Unidades:</strong> ${orden.totalUnidades}</p>
+                                <p style="margin: 0;"><strong>Días transcurridos:</strong> ${dias}</p>
+                                <p style="margin: 0;"><strong>Estado:</strong> ${orden.estado}</p>
+                                <p style="margin: 0;"><strong>Creación:</strong> ${formatearFechaPeru(orden.fecha)}</p>
+                            </div>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <input type="checkbox" id="liberar-${orden.id}" style="margin-right: 0.25rem;">
+                                <label for="liberar-${orden.id}" style="font-size: 0.875rem;">Seleccionar para liberar</label>
+                                ${!expirada ? `<button class="btn btn-outline" style="margin-left: auto; padding: 0.25rem 0.75rem; font-size: 0.875rem;" onclick="extenderPlazoOrden('${orden.id}')">⏰ Extender Plazo</button>` : ''}
+                            </div>
+                        </div>
+                    `;
+                }).join('')}
+            `;
+
+            document.getElementById('contenidoOrdenesExpiradas').innerHTML = html;
+        }
+
+        async function ejecutarLiberacionOrdenes() {
+            const checkboxes = document.querySelectorAll('[id^="liberar-"]');
+            const ordenesALiberar = [];
+            
+            checkboxes.forEach(cb => {
+                if (cb.checked) {
+                    const ordenId = cb.id.replace('liberar-', '');
+                    const orden = ordenes.find(o => o.id === ordenId);
+                    if (orden) ordenesALiberar.push(orden);
+                }
+            });
+
+            if (ordenesALiberar.length === 0) {
+                mostrarToast('Selecciona al menos una orden para liberar', 'warning');
+                return;
+            }
+
+            if (!confirm(`¿Liberar ${ordenesALiberar.length} órdenes? El stock bloqueado será liberado.`)) return;
+
+            for (const orden of ordenesALiberar) {
+                await liberarOrdenExpirada(orden);
+                await notificarOrdenExpirada(orden);
+            }
+
+            await guardarOrdenesSheets();
+            await guardarInventarioSheets();
+            
+            cerrarModal('modalLiberarOrdenesExpiradas');
+            mostrarToast(`${ordenesALiberar.length} órdenes liberadas exitosamente`, 'success');
+            
+            renderizarInventario();
+            renderizarOrdenes();
+            renderizarPicking();
+            actualizarDashboard();
+            verificarOrdenesExpiradas();
+        }
+
+        function extenderPlazoOrden(ordenId) {
+            const orden = ordenes.find(o => o.id === ordenId);
+            if (!orden) return;
+
+            document.getElementById('ordenIdExtender').value = ordenId;
+            
+            const dias = diasTranscurridos(orden.fecha);
+            const diasRestantes = DIAS_EXPIRACION_ORDEN - dias;
+            
+            document.getElementById('infoOrdenExtender').innerHTML = `
+                <div style="background: var(--bg-primary); padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem;">
+                    <p style="margin: 0.25rem 0;"><strong>Orden:</strong> ${orden.nombre || orden.id}</p>
+                    <p style="margin: 0.25rem 0;"><strong>Días restantes actuales:</strong> ${diasRestantes}</p>
+                    <p style="margin: 0.25rem 0;"><strong>Fecha creación:</strong> ${formatearFechaPeru(orden.fecha)}</p>
+                </div>
+            `;
+
+            cerrarModal('modalLiberarOrdenesExpiradas');
+            mostrarModal('modalExtenderOrden');
+        }
+
+        async function aplicarExtensionOrden() {
+            const ordenId = document.getElementById('ordenIdExtender').value;
+            const diasExtension = parseInt(document.getElementById('diasExtension').value) || 7;
+            
+            const orden = ordenes.find(o => o.id === ordenId);
+            if (!orden) return;
+
+            // Ajustar fecha de creación (retrasar en el tiempo para dar más días)
+            const fechaActual = new Date(orden.fecha);
+            fechaActual.setDate(fechaActual.getDate() - diasExtension);
+            orden.fecha = fechaActual;
+            orden.alertaEnviada = false; // Permitir nueva alerta
+
+            await guardarOrdenesSheets();
+            
+            cerrarModal('modalExtenderOrden');
+            mostrarToast(`Plazo extendido por ${diasExtension} días adicionales`, 'success');
+            
+            renderizarOrdenes();
+            verificarOrdenesExpiradas();
+        }
+
+        // ============================================
+        // SISTEMA DE SINCRONIZACIÓN CON RETRY
+        // ============================================
+        async function escribirHojaConRetry(nombreHoja, valores, intentos = MAX_REINTENTOS) {
+            if (cargaMasivaEnProceso) {
+                console.warn('Carga masiva en proceso, operación bloqueada');
+                return false;
+            }
+
+            for (let i = 0; i < intentos; i++) {
+                try {
+                    await gapi.client.sheets.spreadsheets.values.clear({
+                        spreadsheetId: GOOGLE_CONFIG.SPREADSHEET_ID,
+                        range: `${nombreHoja}!A:Z`,
+                    });
+                    
+                    await gapi.client.sheets.spreadsheets.values.update({
+                        spreadsheetId: GOOGLE_CONFIG.SPREADSHEET_ID,
+                        range: `${nombreHoja}!A1`,
+                        valueInputOption: 'RAW',
+                        resource: { values: valores }
+                    });
+                    
+                    // Éxito - remover de cola si estaba ahí
+                    colaSincronizacion = colaSincronizacion.filter(item => item.hoja !== nombreHoja);
+                    actualizarIndicadorSync();
+                    
+                    return true;
+                } catch (err) {
+                    console.error(`Error al escribir hoja (intento ${i + 1}/${intentos}):`, err);
+                    
+                    if (err.status === 401 || err.status === 403) {
+                        manejarDesconexion('Error de autenticación al guardar datos');
+                        return false;
+                    }
+                    
+                    if (i < intentos - 1) {
+                        const delay = DELAY_BASE_MS * Math.pow(2, i);
+                        mostrarToast(`Reintentando guardar ${nombreHoja}... (${i + 1}/${intentos})`, 'warning');
+                        await sleep(delay);
+                    }
+                }
+            }
+
+            // Todos los intentos fallaron - agregar a cola
+            agregarAColaSincronizacion(nombreHoja, valores);
+            mostrarToast(`❌ Error al guardar ${nombreHoja}. Se agregó a cola de sincronización.`, 'danger');
+            return false;
+        }
+
+        function agregarAColaSincronizacion(nombreHoja, valores) {
+            // Verificar si ya está en cola
+            const index = colaSincronizacion.findIndex(item => item.hoja === nombreHoja);
+            
+            if (index >= 0) {
+                // Actualizar valores
+                colaSincronizacion[index].valores = valores;
+                colaSincronizacion[index].timestamp = new Date();
+            } else {
+                // Agregar nuevo
+                colaSincronizacion.push({
+                    hoja: nombreHoja,
+                    valores: valores,
+                    timestamp: new Date(),
+                    intentos: 0
+                });
+            }
+
+            // Guardar en localStorage
+            guardarBackupLocal();
+            actualizarIndicadorSync();
+        }
+
+        function guardarBackupLocal() {
+            try {
+                localStorage.setItem('inventario_backup', JSON.stringify(inventario));
+                localStorage.setItem('productosSystem_backup', JSON.stringify(productosSystem));
+                localStorage.setItem('ordenes_backup', JSON.stringify(ordenes));
+                localStorage.setItem('reclasificacion_backup', JSON.stringify(itemsReclasificacion));
+                localStorage.setItem('colaSincronizacion', JSON.stringify(colaSincronizacion));
+                localStorage.setItem('backup_timestamp', new Date().toISOString());
+            } catch (e) {
+                console.error('Error al guardar backup local:', e);
+            }
+        }
+
+        async function intentarSincronizarCola() {
+            if (intentandoSincronizar || colaSincronizacion.length === 0 || cargaMasivaEnProceso) return;
+
+            intentandoSincronizar = true;
+            actualizarIndicadorSync();
+
+            const itemsARemover = [];
+
+            for (const item of colaSincronizacion) {
+                item.intentos++;
+                
+                try {
+                    await gapi.client.sheets.spreadsheets.values.clear({
+                        spreadsheetId: GOOGLE_CONFIG.SPREADSHEET_ID,
+                        range: `${item.hoja}!A:Z`,
+                    });
+                    
+                    await gapi.client.sheets.spreadsheets.values.update({
+                        spreadsheetId: GOOGLE_CONFIG.SPREADSHEET_ID,
+                        range: `${item.hoja}!A1`,
+                        valueInputOption: 'RAW',
+                        resource: { values: item.valores }
+                    });
+                    
+                    itemsARemover.push(item.hoja);
+                    mostrarToast(`✅ ${item.hoja} sincronizada`, 'success');
+                } catch (err) {
+                    console.error(`Error al sincronizar ${item.hoja}:`, err);
+                    
+                    if (item.intentos >= MAX_REINTENTOS * 3) {
+                        console.error(`${item.hoja} superó máximo de intentos`);
+                    }
+                }
+            }
+
+            // Remover items sincronizados
+            colaSincronizacion = colaSincronizacion.filter(item => !itemsARemover.includes(item.hoja));
+            
+            if (colaSincronizacion.length === 0) {
+                mostrarToast('✅ Toda la cola fue sincronizada', 'success');
+            }
+
+            guardarBackupLocal();
+            intentandoSincronizar = false;
+            actualizarIndicadorSync();
+        }
+
+        function actualizarIndicadorSync() {
+            const indicator = document.getElementById('syncIndicator');
+            const btnSync = document.getElementById('btnSincronizar');
+            
+            if (colaSincronizacion.length > 0) {
+                indicator.className = 'sync-indicator pending';
+                indicator.textContent = `🟡 ${colaSincronizacion.length} pendientes`;
+                btnSync.textContent = `Sincronizar (${colaSincronizacion.length})`;
+            } else if (intentandoSincronizar) {
+                indicator.className = 'sync-indicator pending';
+                indicator.textContent = '🔄 Sincronizando...';
+            } else {
+                indicator.className = 'sync-indicator connected';
+                indicator.textContent = '🟢 Conectado';
+                btnSync.textContent = 'Sincronizar';
+            }
+        }
+
+        // ============================================
+        // DETECTOR DE VARIANTES HUÉRFANAS
+        // ============================================
+        function detectarVariantesHuerfanas() {
+            const huerfanas = [];
+            
+            for (const item of inventario) {
+                // Saltar ubicaciones de reclasificación
+                if (item.ubicacion && item.ubicacion.startsWith('999-')) continue;
+                if (item.ubicacion && item.ubicacion.startsWith('191')) continue;
+                
+                const existe = productosSystem.find(p => p.variante === item.variante);
+                
+                if (!existe) {
+                    const generico = extraerGenerico(item.variante);
+                    
+                    if (generico) {
+                        const variantesCorrectas = productosSystem.filter(p => 
+                            p.variante.startsWith(generico)
+                        );
+                        
+                        huerfanas.push({
+                            varianteErronea: item.variante,
+                            ubicacion: item.ubicacion,
+                            stockFisico: item.stockFisico,
+                            generico: generico,
+                            variantesSugeridas: variantesCorrectas.map(v => ({
+                                variante: v.variante,
+                                descripcion: v.descripcion,
+                                talla: v.talla,
+                                marca: v.marca,
+                                color: v.color
+                            }))
+                        });
+                    }
+                }
+            }
+            
+            variantesHuerfanasCache = huerfanas;
+            return huerfanas;
+        }
+
+        function mostrarAlertasVariantesHuerfanas() {
+            const huerfanas = variantesHuerfanasCache;
+            const container = document.getElementById('alertasVariantesHuerfanas');
+            
+            if (huerfanas.length === 0) {
+                container.innerHTML = '';
+                return;
+            }
+
+            const totalUnidades = huerfanas.reduce((sum, h) => sum + h.stockFisico, 0);
+
+            container.innerHTML = `
+                <div class="alert alert-danger" style="cursor: pointer;" onclick="mostrarModalVariantesHuerfanas()">
+                    <strong>⚠️ ${huerfanas.length} variantes huérfanas detectadas (${totalUnidades} unidades)</strong><br>
+                    Estas variantes existen en inventario pero NO en Productos System. Haz clic para corregir.
+                </div>
+            `;
+        }
+
+        function mostrarModalVariantesHuerfanas() {
+            const huerfanas = variantesHuerfanasCache;
+            
+            if (huerfanas.length === 0) {
+                mostrarToast('No hay variantes huérfanas', 'success');
+                return;
+            }
+
+            const html = huerfanas.map((h, index) => `
+                <div style="border: 1px solid var(--border); border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem; background: rgba(239, 68, 68, 0.05);">
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; margin-bottom: 0.75rem;">
+                        <div><strong>Variante Errónea:</strong> ${h.varianteErronea}</div>
+                        <div><strong>Ubicación:</strong> ${h.ubicacion}</div>
+                        <div><strong>Stock:</strong> ${h.stockFisico} unidades</div>
+                        <div><strong>Genérico:</strong> ${h.generico}</div>
+                    </div>
+                    
+                    ${h.variantesSugeridas.length > 0 ? `
+                        <div style="background: var(--bg-primary); padding: 0.75rem; border-radius: 0.5rem; margin-bottom: 0.75rem;">
+                            <strong>Sugerencias (mismo genérico):</strong>
+                            <div style="max-height: 150px; overflow-y: auto; margin-top: 0.5rem;">
+                                ${h.variantesSugeridas.map(v => `
+                                    <div style="padding: 0.5rem; margin: 0.25rem 0; background: white; border-radius: 0.25rem; font-size: 0.875rem;">
+                                        <strong>${v.variante}</strong> - ${v.descripcion} | Talla: ${v.talla} | ${v.marca}
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    ` : '<p style="color: var(--text-secondary); font-size: 0.875rem;">No se encontraron sugerencias con el mismo genérico</p>'}
+                    
+                    <button class="btn btn-success" style="width: 100%;" onclick="corregirVarianteHuerfana('${h.varianteErronea}', '${h.ubicacion}')">
+                        ✏️ Corregir Variante
+                    </button>
+                </div>
+            `).join('');
+
+            document.getElementById('contenidoVariantesHuerfanas').innerHTML = html;
+            mostrarModal('modalVariantesHuerfanas');
+        }
+
+        function corregirVarianteHuerfana(varianteErronea, ubicacion) {
+            const huerfana = variantesHuerfanasCache.find(h => 
+                h.varianteErronea === varianteErronea && h.ubicacion === ubicacion
+            );
+            
+            if (!huerfana) return;
+
+            document.getElementById('varianteErronea').value = varianteErronea;
+            document.getElementById('ubicacionHuerfana').value = ubicacion;
+            
+            document.getElementById('infoHuerfana').innerHTML = `
+                <p style="margin: 0.25rem 0;"><strong>Variante Errónea:</strong> ${varianteErronea}</p>
+                <p style="margin: 0.25rem 0;"><strong>Ubicación:</strong> ${ubicacion}</p>
+                <p style="margin: 0.25rem 0;"><strong>Stock:</strong> ${huerfana.stockFisico} unidades</p>
+                <p style="margin: 0.25rem 0;"><strong>Genérico:</strong> ${huerfana.generico}</p>
+            `;
+
+            const selectVariante = document.getElementById('varianteCorrecta');
+            selectVariante.innerHTML = '<option value="">Seleccionar variante correcta...</option>' +
+                huerfana.variantesSugeridas.map(v => `
+                    <option value="${v.variante}">${v.variante} - ${v.descripcion} (Talla: ${v.talla})</option>
+                `).join('');
+
+            cerrarModal('modalVariantesHuerfanas');
+            mostrarModal('modalCorregirHuerfana');
+        }
+
+        async function aplicarCorreccionHuerfana() {
+            const varianteErronea = document.getElementById('varianteErronea').value;
+            const ubicacion = document.getElementById('ubicacionHuerfana').value;
+            const varianteCorrecta = document.getElementById('varianteCorrecta').value;
+
+            if (!varianteCorrecta) {
+                mostrarToast('Selecciona una variante correcta', 'warning');
+                return;
+            }
+
+            const itemErroneo = inventario.find(i => 
+                i.variante === varianteErronea && i.ubicacion === ubicacion
+            );
+
+            if (!itemErroneo) {
+                mostrarToast('No se encontró el item en inventario', 'danger');
+                return;
+            }
+
+            // Buscar si ya existe la variante correcta en la misma ubicación
+            const itemCorrecto = inventario.find(i => 
+                i.variante === varianteCorrecta && i.ubicacion === ubicacion
+            );
+
+            if (itemCorrecto) {
+                // Consolidar
+                itemCorrecto.stockFisico += itemErroneo.stockFisico;
+                itemCorrecto.stockBloqueado += itemErroneo.stockBloqueado;
+                
+                // Eliminar item erróneo
+                const index = inventario.findIndex(i => 
+                    i.variante === varianteErronea && i.ubicacion === ubicacion
+                );
+                inventario.splice(index, 1);
+            } else {
+                // Simplemente cambiar la variante
+                itemErroneo.variante = varianteCorrecta;
+            }
+
+            await guardarInventarioSheets();
+            
+            cerrarModal('modalCorregirHuerfana');
+            mostrarToast('Variante corregida exitosamente', 'success');
+            
+            renderizarInventario();
+            actualizarDashboard();
+            detectarVariantesHuerfanas();
+            mostrarAlertasVariantesHuerfanas();
+        }
+
+        // ============================================
+        // AUTENTICACIÓN GOOGLE
+        // ============================================
         document.addEventListener('click', function(event) {
             if (!event.target.closest('.dropdown-menu-container')) {
                 document.querySelectorAll('.dropdown-menu').forEach(menu => {
@@ -786,7 +1619,6 @@
             event.stopPropagation();
             const dropdown = document.getElementById(`dropdown-${ordenId}`);
             
-            // Cerrar otros dropdowns
             document.querySelectorAll('.dropdown-menu').forEach(menu => {
                 if (menu.id !== `dropdown-${ordenId}`) {
                     menu.classList.remove('active');
@@ -802,7 +1634,10 @@
 
         async function initializeGapiClient() {
             await gapi.client.init({
-                discoveryDocs: ['https://sheets.googleapis.com/$discovery/rest?version=v4'],
+                discoveryDocs: [
+                    'https://sheets.googleapis.com/$discovery/rest?version=v4',
+                    'https://www.googleapis.com/discovery/v1/apis/gmail/v1/rest'
+                ],
             });
             gapiInited = true;
             maybeEnableButtons();
@@ -836,14 +1671,23 @@
                 }
                 accessToken = resp.access_token;
                 localStorage.setItem('google_access_token', accessToken);
-                mostrarToast('Conectado con Google Sheets', 'success');
+                
+                // Obtener correo del usuario
+                try {
+                    const profile = await gapi.client.gmail.users.getProfile({ userId: 'me' });
+                    correoUsuario = profile.result.emailAddress;
+                } catch (e) {
+                    console.error('Error al obtener correo:', e);
+                }
+                
+                mostrarToast('Conectado con Google Sheets y Gmail', 'success');
                 iniciarApp();
             };
 
             if (gapi.client.getToken() === null) {
-                tokenClient.requestAccessToken({prompt: 'consent', ux_mode: 'redirect'});
+                tokenClient.requestAccessToken({prompt: 'consent'});
             } else {
-                tokenClient.requestAccessToken({prompt: '', ux_mode: 'redirect'});
+                tokenClient.requestAccessToken({prompt: ''});
             }
         }
 
@@ -865,6 +1709,10 @@
             await cargarDatos();
             paginaInventario = 1;
             paginaProductosSystem = 1;
+            
+            detectarVariantesHuerfanas();
+            await verificarOrdenesExpiradas();
+            
             actualizarDashboard();
             renderizarInventario();
             cargarFiltrosProductos();
@@ -876,6 +1724,12 @@
             mostrarToast('Datos sincronizados desde Google Sheets', 'success');
             
             verificarConexionPeriodica();
+            
+            // Verificar cada 5 minutos órdenes expiradas y sincronización
+            setInterval(() => {
+                verificarOrdenesExpiradas();
+                intentarSincronizarCola();
+            }, 300000);
         }
 
         async function leerHoja(nombreHoja, rango = 'A:Z') {
@@ -891,28 +1745,6 @@
                     manejarDesconexion('Error de autenticación al leer datos');
                 }
                 return [];
-            }
-        }
-
-        async function escribirHoja(nombreHoja, valores) {
-            try {
-                await gapi.client.sheets.spreadsheets.values.clear({
-                    spreadsheetId: GOOGLE_CONFIG.SPREADSHEET_ID,
-                    range: `${nombreHoja}!A:Z`,
-                });
-                await gapi.client.sheets.spreadsheets.values.update({
-                    spreadsheetId: GOOGLE_CONFIG.SPREADSHEET_ID,
-                    range: `${nombreHoja}!A1`,
-                    valueInputOption: 'RAW',
-                    resource: { values: valores }
-                });
-                return true;
-            } catch (err) {
-                console.error('Error al escribir hoja:', err);
-                if (err.status === 401 || err.status === 403) {
-                    manejarDesconexion('Error de autenticación al guardar datos');
-                }
-                return false;
             }
         }
 
@@ -985,11 +1817,22 @@
                 mostrarToast('Espera a que termine la carga actual', 'warning');
                 return;
             }
+            
+            // Primero intentar sincronizar la cola
+            if (colaSincronizacion.length > 0) {
+                mostrarToast('Sincronizando datos pendientes...', 'info');
+                await intentarSincronizarCola();
+            }
+            
             mostrarToast('Sincronizando con Google Sheets...', 'info');
             await guardarDatos();
             await cargarDatos();
             paginaInventario = 1;
             paginaProductosSystem = 1;
+            
+            detectarVariantesHuerfanas();
+            await verificarOrdenesExpiradas();
+            
             actualizarDashboard();
             renderizarInventario();
             cargarFiltrosProductos();
@@ -1016,6 +1859,9 @@
             }
         }
 
+        // ============================================
+        // FUNCIONES DE CARGA DESDE SHEETS
+        // ============================================
         async function cargarInventarioSheets() {
             const rows = await leerHoja('inventario');
             if (rows.length === 0) return;
@@ -1032,11 +1878,16 @@
         }
 
         async function guardarInventarioSheets() {
+            if (cargaMasivaEnProceso) {
+                console.warn('Carga masiva en proceso');
+                return false;
+            }
+            
             const valores = [
                 ['variante', 'ubicacion', 'stockFisico', 'stockBloqueado'],
                 ...inventario.map(item => [item.variante, item.ubicacion, item.stockFisico, item.stockBloqueado])
             ];
-            await escribirHoja('inventario', valores);
+            return await escribirHojaConRetry('inventario', valores);
         }
 
         async function cargarProductosSystemSheets() {
@@ -1064,6 +1915,11 @@
         }
 
         async function guardarProductosSystemSheets() {
+            if (cargaMasivaEnProceso) {
+                console.warn('Carga masiva en proceso');
+                return false;
+            }
+            
             const valores = [
                 ['variante', 'codigoComercial', 'descripcion', 'pvp', 'stkFin', 'marca', 'talla', 'genero', 'color', 'temporada', 'kardex', 'linea', 'mundo'],
                 ...productosSystem.map(p => [
@@ -1072,7 +1928,7 @@
                     p.linea || '', p.mundo || ''
                 ])
             ];
-            await escribirHoja('productosSystem', valores);
+            return await escribirHojaConRetry('productosSystem', valores);
         }
 
         async function cargarOrdenesSheets() {
@@ -1085,7 +1941,7 @@
                     ordenes.push({
                         id: row[0] || '',
                         nombre: row[1] || '',
-                        fecha: new Date(row[2]),
+                        fecha: parsearFechaPeru(row[2]),
                         estado: row[3] || '',
                         totalUnidades: parseInt(row[4]) || 0,
                         totalAtendido: parseInt(row[5]) || 0,
@@ -1099,8 +1955,9 @@
                         distribucionAjustada: row[13] === 'true',
                         observaciones: JSON.parse(row[14] || 'null'),
                         prendasRechazadas: parseInt(row[15]) || 0,
-                        fechaCierre: row[16] ? new Date(row[16]) : null,
-                        variantesSinStock: JSON.parse(row[17] || '[]')
+                        fechaCierre: row[16] ? parsearFechaPeru(row[16]) : null,
+                        variantesSinStock: JSON.parse(row[17] || '[]'),
+                        alertaEnviada: row[18] === 'true'
                     });
                 } catch (e) {
                     console.error('Error al parsear orden:', e);
@@ -1109,22 +1966,28 @@
         }
 
         async function guardarOrdenesSheets() {
+            if (cargaMasivaEnProceso) {
+                console.warn('Carga masiva en proceso');
+                return false;
+            }
+            
             const valores = [
                 ['id', 'nombre', 'fecha', 'estado', 'totalUnidades', 'totalAtendido', 'monto', 'items', 'hojaRutaPicking', 'hojaPacking', 
                  'cantidadesEncontradas', 'unidadesEncontradas', 'unidadesFaltantes', 
-                 'distribucionAjustada', 'observaciones', 'prendasRechazadas', 'fechaCierre', 'variantesSinStock'],
+                 'distribucionAjustada', 'observaciones', 'prendasRechazadas', 'fechaCierre', 'variantesSinStock', 'alertaEnviada'],
                 ...ordenes.map(o => [
-                    o.id, o.nombre || '', o.fecha.toISOString(), o.estado, o.totalUnidades,
+                    o.id, o.nombre || '', formatearFechaPeru(o.fecha), o.estado, o.totalUnidades,
                     o.totalAtendido || 0, o.monto || 0,
                     JSON.stringify(o.items || []), JSON.stringify(o.hojaRutaPicking || []),
                     JSON.stringify(o.hojaPacking || []), JSON.stringify(o.cantidadesEncontradas || null),
                     o.unidadesEncontradas || 0, o.unidadesFaltantes || 0,
                     o.distribucionAjustada || false, JSON.stringify(o.observaciones || null),
-                    o.prendasRechazadas || 0, o.fechaCierre ? o.fechaCierre.toISOString() : '',
-                    JSON.stringify(o.variantesSinStock || [])
+                    o.prendasRechazadas || 0, o.fechaCierre ? formatearFechaPeru(o.fechaCierre) : '',
+                    JSON.stringify(o.variantesSinStock || []),
+                    o.alertaEnviada || false
                 ])
             ];
-            await escribirHoja('ordenes', valores);
+            return await escribirHojaConRetry('ordenes', valores);
         }
 
         async function cargarReclasificacionSheets() {
@@ -1149,6 +2012,11 @@
         }
 
         async function guardarReclasificacionSheets() {
+            if (cargaMasivaEnProceso) {
+                console.warn('Carga masiva en proceso');
+                return false;
+            }
+            
             const valores = [
                 ['id', 'ordenId', 'varianteOriginal', 'ubicacionOriginal', 'cantidad', 'motivo', 'comentario', 'estado', 'ubicacionDestino', 'nuevaVariante'],
                 ...itemsReclasificacion.map(i => [
@@ -1156,9 +2024,12 @@
                     i.motivo, i.comentario || '', i.estado, i.ubicacionDestino || '', i.nuevaVariante || ''
                 ])
             ];
-            await escribirHoja('reclasificacion', valores);
+            return await escribirHojaConRetry('reclasificacion', valores);
         }
 
+        // ============================================
+        // UI Y NAVEGACIÓN
+        // ============================================
         function mostrarToast(mensaje, tipo = 'info') {
             const toast = document.getElementById('toast');
             toast.textContent = mensaje;
@@ -1171,6 +2042,9 @@
         }
 
         function mostrarModal(id) {
+            if (id === 'modalLiberarOrdenesExpiradas') {
+                mostrarModalOrdenesExpiradas();
+            }
             document.getElementById(id).classList.add('active');
         }
 
@@ -1234,9 +2108,11 @@
             document.getElementById('statInventario').textContent = new Set(inventario.map(i => i.variante)).size;
             document.getElementById('statUnidades').textContent = totalUnidades;
             document.getElementById('statBloqueadas').textContent = totalBloqueadas;
-            document.getElementById('statOrdenes').textContent = ordenes.filter(o => o.estado !== 'Completada').length;
+            document.getElementById('statOrdenes').textContent = ordenes.filter(o => o.estado !== 'Completada' && o.estado !== 'Expirada').length;
             
             calcularMontosPorGeneroMesActual();
+            mostrarAlertasOrdenesExpirando();
+            mostrarAlertasVariantesHuerfanas();
         }
 
         function calcularMontosPorGeneroMesActual() {
@@ -1303,6 +2179,9 @@
             document.getElementById('cantidadTotalMes').textContent = cantidadTotal.toLocaleString('es-PE');
         }
 
+        // ============================================
+        // RENDERIZADO DE INVENTARIO
+        // ============================================
         function renderizarInventario() {
             const busqueda = document.getElementById('buscarInventario')?.value.toLowerCase() || '';
             const filtrado = inventario.filter(item => 
@@ -1315,35 +2194,51 @@
             const fin = inicio + ITEMS_POR_PAGINA;
             const itemsPagina = filtrado.slice(inicio, fin);
 
-            document.getElementById('inventarioTableBody').innerHTML = itemsPagina.map(item => `
-                <tr>
-                    <td><strong>${item.variante}</strong></td>
-                    <td>${item.ubicacion}</td>
-                    <td>${item.stockFisico}</td>
-                    <td style="color: var(--warning);">${item.stockBloqueado}</td>
-                    <td style="color: var(--success);"><strong>${item.stockFisico - item.stockBloqueado}</strong></td>
-                    <td style="white-space: nowrap;">
-                        <button class="icon-btn" style="background: #10b981; color: white;" onclick="abrirModalEditarInventario('${item.variante}', '${item.ubicacion}')" title="Editar">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                            </svg>
-                        </button>
-                        <button class="icon-btn" style="background: #3b82f6; color: white;" onclick="visualizarProducto('${item.variante}')" title="Ver información">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                                <circle cx="12" cy="12" r="3"></circle>
-                            </svg>
-                        </button>
-                        <button class="icon-btn" style="background: #ef4444; color: white;" onclick="eliminarInventarioIndividual('${item.variante}', '${item.ubicacion}')" title="Eliminar">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <polyline points="3 6 5 6 21 6"></polyline>
-                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                            </svg>
-                        </button>
-                    </td>
-                </tr>
-            `).join('');
+            document.getElementById('inventarioTableBody').innerHTML = itemsPagina.map(item => {
+                const productoExiste = productosSystem.find(p => p.variante === item.variante);
+                let estadoBadge = '';
+                let rowClass = '';
+                
+                if (!productoExiste) {
+                    estadoBadge = '<span class="badge badge-red" title="Variante huérfana">⚠️ Huérfana</span>';
+                    rowClass = 'class="huerfana-row"';
+                } else if (item.ubicacion && item.ubicacion.startsWith('999-')) {
+                    estadoBadge = '<span class="badge badge-orange" title="En reclasificación">🔄 Pendiente</span>';
+                } else {
+                    estadoBadge = '<span class="badge badge-green">✓ OK</span>';
+                }
+                
+                return `
+                    <tr ${rowClass}>
+                        <td><strong>${item.variante}</strong></td>
+                        <td>${item.ubicacion}</td>
+                        <td>${item.stockFisico}</td>
+                        <td style="color: var(--warning);">${item.stockBloqueado}</td>
+                        <td style="color: var(--success);"><strong>${item.stockFisico - item.stockBloqueado}</strong></td>
+                        <td>${estadoBadge}</td>
+                        <td style="white-space: nowrap;">
+                            <button class="icon-btn" style="background: #10b981; color: white;" onclick="abrirModalEditarInventario('${item.variante}', '${item.ubicacion}')" title="Editar">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                                </svg>
+                            </button>
+                            <button class="icon-btn" style="background: #3b82f6; color: white;" onclick="visualizarProducto('${item.variante}')" title="Ver información">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                    <circle cx="12" cy="12" r="3"></circle>
+                                </svg>
+                            </button>
+                            <button class="icon-btn" style="background: #ef4444; color: white;" onclick="eliminarInventarioIndividual('${item.variante}', '${item.ubicacion}')" title="Eliminar">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="3 6 5 6 21 6"></polyline>
+                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                </svg>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
 
             renderizarPaginacion('inventario', totalPaginas, filtrado.length);
         }
@@ -1363,6 +2258,11 @@
 
         async function guardarEdicionInventario(event) {
             event.preventDefault();
+            
+            if (cargaMasivaEnProceso) {
+                mostrarToast('Espera a que termine la carga masiva', 'warning');
+                return;
+            }
             
             const varianteOriginal = document.getElementById('varianteOriginalEditar').value;
             const ubicacionOriginal = document.getElementById('ubicacionOriginalEditar').value;
@@ -1410,9 +2310,16 @@
             await guardarInventarioSheets();
             renderizarInventario();
             actualizarDashboard();
+            detectarVariantesHuerfanas();
+            mostrarAlertasVariantesHuerfanas();
         }
 
         async function eliminarInventarioIndividual(variante, ubicacion) {
+            if (cargaMasivaEnProceso) {
+                mostrarToast('Espera a que termine la carga masiva', 'warning');
+                return;
+            }
+            
             if (!confirm(`¿Eliminar ${variante} de ${ubicacion}?`)) return;
             
             inventario = inventario.filter(i => !(i.variante === variante && i.ubicacion === ubicacion));
@@ -1420,6 +2327,8 @@
             mostrarToast('Producto eliminado', 'success');
             renderizarInventario();
             actualizarDashboard();
+            detectarVariantesHuerfanas();
+            mostrarAlertasVariantesHuerfanas();
         }
 
         function visualizarProducto(variante) {
@@ -1493,11 +2402,15 @@
             renderizarInventario();
         }
 
+        // ============================================
+        // PROCESAMIENTO MASIVO DE INVENTARIO
+        // ============================================
         async function procesarInventarioMasivo(event) {
             const file = event.target.files[0];
             if (!file) return;
             
             cargaMasivaEnProceso = true;
+            bloquearUI();
             
             try {
                 document.getElementById('loadingOverlay').classList.add('active');
@@ -1511,6 +2424,41 @@
                         const workbook = XLSX.read(data, { type: 'array' });
                         const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
                         const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+
+                        // VALIDACIÓN: Verificar variantes huérfanas antes de guardar
+                        const variantesNoEncontradas = [];
+                        for (const row of jsonData) {
+                            const variante = String(row.Variante || row.variante || '').trim();
+                            if (!variante) continue;
+                            
+                            const existe = productosSystem.find(p => p.variante === variante);
+                            if (!existe) {
+                                const generico = extraerGenerico(variante);
+                                const sugerencias = generico ? 
+                                    productosSystem.filter(p => p.variante.startsWith(generico)) : [];
+                                
+                                variantesNoEncontradas.push({
+                                    variante,
+                                    generico: generico || 'N/A',
+                                    sugerencias
+                                });
+                            }
+                        }
+
+                        if (variantesNoEncontradas.length > 0) {
+                            const confirmar = confirm(
+                                `⚠️ ADVERTENCIA: Se encontraron ${variantesNoEncontradas.length} variantes que NO existen en Productos System (variantes huérfanas).\n\n` +
+                                `Estas variantes podrían ser errores de digitación.\n\n` +
+                                `¿Deseas continuar de todos modos? Se recomienda cancelar y corregir el archivo.`
+                            );
+                            
+                            if (!confirmar) {
+                                document.getElementById('loadingOverlay').classList.remove('active');
+                                cargaMasivaEnProceso = false;
+                                desbloquearUI();
+                                return;
+                            }
+                        }
 
                         const totalRows = jsonData.length;
                         let procesados = 0;
@@ -1542,7 +2490,7 @@
                             const progreso = Math.round((procesados / totalRows) * 90);
                             document.getElementById('loadingProgress').style.width = progreso + '%';
                             document.getElementById('loadingText').textContent = `Procesando: ${procesados} de ${totalRows}`;
-                            await new Promise(resolve => setTimeout(resolve, 0));
+                            await sleep(0);
                         }
 
                         document.getElementById('loadingText').textContent = 'Guardando en Google Sheets...';
@@ -1553,18 +2501,22 @@
                         mostrarToast(`${totalRows} filas procesadas y guardadas`, 'success');
                         renderizarInventario();
                         actualizarDashboard();
+                        detectarVariantesHuerfanas();
+                        mostrarAlertasVariantesHuerfanas();
                     } catch (error) {
                         console.error(error);
                         mostrarToast('Error al procesar archivo', 'danger');
                     } finally {
                         document.getElementById('loadingOverlay').classList.remove('active');
                         cargaMasivaEnProceso = false;
+                        desbloquearUI();
                     }
                 };
                 reader.readAsArrayBuffer(file);
             } catch (error) {
                 document.getElementById('loadingOverlay').classList.remove('active');
                 cargaMasivaEnProceso = false;
+                desbloquearUI();
                 console.error(error);
                 mostrarToast('Error al procesar archivo', 'danger');
             }
@@ -1575,6 +2527,7 @@
             if (!file) return;
             
             cargaMasivaEnProceso = true;
+            bloquearUI();
             
             try {
                 document.getElementById('loadingOverlay').classList.add('active');
@@ -1656,18 +2609,23 @@
                         mostrarToast(`${modificados} modificados, ${errores} errores`, modificados > 0 ? 'success' : 'warning');
                         renderizarInventario();
                         actualizarDashboard();
+                        detectarVariantesHuerfanas();
+                        mostrarAlertasVariantesHuerfanas();
                     } catch (error) {
                         console.error(error);
                         mostrarToast('Error al procesar archivo', 'danger');
                     } finally {
                         document.getElementById('loadingOverlay').classList.remove('active');
                         cargaMasivaEnProceso = false;
+                        desbloquearUI();
                     }
                 };
                 reader.readAsArrayBuffer(file);
-            } catch (error) {
+            }
+            catch (error) {
                 document.getElementById('loadingOverlay').classList.remove('active');
                 cargaMasivaEnProceso = false;
+                desbloquearUI();
                 console.error(error);
                 mostrarToast('Error al procesar archivo', 'danger');
             }
@@ -1678,6 +2636,7 @@
             if (!file) return;
             
             cargaMasivaEnProceso = true;
+            bloquearUI();
             
             try {
                 document.getElementById('loadingOverlay').classList.add('active');
@@ -1714,28 +2673,62 @@
                         mostrarToast(`${eliminados} productos eliminados`, 'success');
                         renderizarInventario();
                         actualizarDashboard();
+                        detectarVariantesHuerfanas();
+                        mostrarAlertasVariantesHuerfanas();
                     } catch (error) {
                         console.error(error);
                         mostrarToast('Error al procesar archivo', 'danger');
                     } finally {
                         document.getElementById('loadingOverlay').classList.remove('active');
                         cargaMasivaEnProceso = false;
+                        desbloquearUI();
                     }
                 };
                 reader.readAsArrayBuffer(file);
             } catch (error) {
                 document.getElementById('loadingOverlay').classList.remove('active');
                 cargaMasivaEnProceso = false;
+                desbloquearUI();
                 console.error(error);
                 mostrarToast('Error al procesar archivo', 'danger');
             }
         }
 
-        function guardarProductoIndividual(event) {
+        async function guardarProductoIndividual(event) {
             event.preventDefault();
+            
+            if (cargaMasivaEnProceso) {
+                mostrarToast('Espera a que termine la carga masiva', 'warning');
+                return;
+            }
+            
             const variante = document.getElementById('varianteIndividual').value.trim();
             const ubicacion = document.getElementById('ubicacionIndividual').value.trim().toUpperCase();
             const stockFisico = parseInt(document.getElementById('stockIndividual').value);
+
+            // Verificar si es variante huérfana
+            const productoExiste = productosSystem.find(p => p.variante === variante);
+            if (!productoExiste) {
+                const generico = extraerGenerico(variante);
+                const sugerencias = generico ? 
+                    productosSystem.filter(p => p.variante.startsWith(generico)) : [];
+                
+                let mensaje = `⚠️ ADVERTENCIA: La variante ${variante} NO existe en Productos System.\n\n`;
+                
+                if (sugerencias.length > 0) {
+                    mensaje += `¿Quisiste decir alguna de estas?\n\n`;
+                    sugerencias.slice(0, 5).forEach(s => {
+                        mensaje += `- ${s.variante} (${s.descripcion})\n`;
+                    });
+                    mensaje += `\n¿Deseas continuar de todos modos?`;
+                } else {
+                    mensaje += `No se encontraron sugerencias.\n\n¿Deseas continuar de todos modos?`;
+                }
+                
+                if (!confirm(mensaje)) {
+                    return;
+                }
+            }
 
             const existente = inventario.find(item => 
                 item.variante === variante && item.ubicacion === ubicacion
@@ -1755,9 +2748,16 @@
             }
 
             cerrarModal('modalAgregarIndividual');
-            guardarInventarioSheets();
+            await guardarInventarioSheets();
             renderizarInventario();
             actualizarDashboard();
+            detectarVariantesHuerfanas();
+            mostrarAlertasVariantesHuerfanas();
+            
+            // Limpiar form
+            document.getElementById('varianteIndividual').value = '';
+            document.getElementById('ubicacionIndividual').value = '';
+            document.getElementById('stockIndividual').value = '';
         }
 
         function exportarInventario() {
@@ -1799,6 +2799,9 @@
             mostrarToast('Inventario completo exportado', 'success');
         }
 
+        // ============================================
+        // PRODUCTOS SYSTEM
+        // ============================================
         function cargarFiltrosProductos() {
             const generos = [...new Set(productosSystem.map(p => p.genero).filter(Boolean))].sort();
             
@@ -1860,6 +2863,7 @@
             document.getElementById('filtroTemporada').value = '';
             document.getElementById('filtroMarca').value = '';
             document.getElementById('filtroMundo').value = '';
+            paginaProductosSystem = 1; // FIX: Resetear paginación
             actualizarFiltrosCascada();
         }
 
@@ -1937,6 +2941,7 @@
             if (!file) return;
             
             cargaMasivaEnProceso = true;
+            bloquearUI();
             
             try {
                 document.getElementById('loadingOverlay').classList.add('active');
@@ -1951,60 +2956,206 @@
                         const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
                         const jsonData = XLSX.utils.sheet_to_json(firstSheet);
 
-                        productosSystem = jsonData.map(row => ({
-                            variante: String(row.VARIANTE || row.variante || ''),
-                            codigoComercial: row['CODIGO COMERCIAL'] || row['Codigo Comercial'] || '',
-                            descripcion: row['DESCRIPCIÓN'] || row.descripcion || '',
-                            pvp: parseFloat(row.PVP || 0),
-                            stkFin: parseInt(row['Stk Fin'] || row.stkFin || 0),
-                            marca: row.MARCA || row.marca || '',
-                            talla: row.TALLA || row.talla || '',
-                            genero: row.Genero || row.genero || '',
-                            color: row.COLOR || row.color || '',
-                            temporada: row.TEMPORADA_MUNDO || row.temporada || '',
-                            kardex: parseFloat(row.Kardex || row.kardex || 0),
-                            linea: row.Linea || row.linea || row.LINEA || '',
-                            mundo: row.Mundo || row.mundo || row.MUNDO || ''
-                        }));
+                        const advertenciasKardex = [];
+                        
+                        productosSystemPendientes = jsonData.map((row, index) => {
+                            const kardex = parseFloat(row.Kardex || row.kardex || 0);
+                            
+                            if (kardex === 0 || isNaN(kardex)) {
+                                advertenciasKardex.push({
+                                    fila: index + 2,
+                                    variante: row.VARIANTE || row.variante || 'N/A',
+                                    descripcion: row['DESCRIPCIÓN'] || row.descripcion || 'N/A',
+                                    problema: 'Kardex en 0 o inválido'
+                                });
+                            }
+                            
+                            return {
+                                variante: String(row.VARIANTE || row.variante || ''),
+                                codigoComercial: row['CODIGO COMERCIAL'] || row['Codigo Comercial'] || '',
+                                descripcion: row['DESCRIPCIÓN'] || row.descripcion || '',
+                                pvp: parseFloat(row.PVP || 0),
+                                stkFin: parseInt(row['Stk Fin'] || row.stkFin || 0),
+                                marca: row.MARCA || row.marca || '',
+                                talla: row.TALLA || row.talla || '',
+                                genero: row.Genero || row.genero || '',
+                                color: row.COLOR || row.color || '',
+                                temporada: row.TEMPORADA_MUNDO || row.temporada || '',
+                                kardex: kardex,
+                                linea: row.Linea || row.linea || row.LINEA || '',
+                                mundo: row.Mundo || row.mundo || row.MUNDO || ''
+                            };
+                        });
 
-                        await guardarProductosSystemSheets();
-                        mostrarToast(`${productosSystem.length} productos cargados`, 'success');
-                        cargarFiltrosProductos();
-                        renderizarProductosSystem();
-                        verificarDiscrepancias();
+                        document.getElementById('loadingOverlay').classList.remove('active');
+                        cargaMasivaEnProceso = false;
+                        desbloquearUI();
+
+                        if (advertenciasKardex.length > 0) {
+                            mostrarModalAdvertenciasKardex(advertenciasKardex);
+                        } else {
+                            await continuarSubidaProductos();
+                        }
                     } catch (error) {
                         console.error(error);
                         mostrarToast('Error al procesar archivo', 'danger');
-                    } finally {
                         document.getElementById('loadingOverlay').classList.remove('active');
                         cargaMasivaEnProceso = false;
+                        desbloquearUI();
                     }
                 };
                 reader.readAsArrayBuffer(file);
             } catch (error) {
                 document.getElementById('loadingOverlay').classList.remove('active');
                 cargaMasivaEnProceso = false;
+                desbloquearUI();
                 console.error(error);
                 mostrarToast('Error al procesar archivo', 'danger');
             }
         }
 
-        function verificarDiscrepancias() {
-            const discrepancias = productosSystem.filter(prod => {
-                const stockFisico = inventario
-                    .filter(i => i.variante === prod.variante && !i.ubicacion.startsWith('191'))
-                    .reduce((sum, i) => sum + i.stockFisico, 0);
-                return Math.abs(stockFisico - prod.stkFin) > 5;
-            });
+        function mostrarModalAdvertenciasKardex(advertencias) {
+            const html = `
+                <div style="max-height: 400px; overflow-y: auto;">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Fila</th>
+                                <th>Variante</th>
+                                <th>Descripción</th>
+                                <th>Problema</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${advertencias.map(adv => `
+                                <tr>
+                                    <td>${adv.fila}</td>
+                                    <td><strong>${adv.variante}</strong></td>
+                                    <td>${adv.descripcion}</td>
+                                    <td><span class="badge badge-red">${adv.problema}</span></td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="alert alert-warning" style="margin-top: 1rem;">
+                    <strong>⚠️ Total: ${advertencias.length} productos con advertencias</strong><br>
+                    Se recomienda corregir el archivo antes de continuar.
+                </div>
+            `;
+            
+            document.getElementById('contenidoAdvertenciasKardex').innerHTML = html;
+            mostrarModal('modalAdvertenciasKardex');
+        }
 
-            const alertDiv = document.getElementById('discrepanciasAlert');
-            if (discrepancias.length > 0) {
-                alertDiv.innerHTML = `<div class="alert alert-danger"><strong>⚠️ ${discrepancias.length} variantes con discrepancias mayores a 5 unidades</strong><br>Se requiere verificación del área de picking.</div>`;
-            } else {
-                alertDiv.innerHTML = '<div class="alert alert-success">✓ Todos los stocks coinciden</div>';
+        function cancelarSubidaProductos() {
+            productosSystemPendientes = null;
+            cerrarModal('modalAdvertenciasKardex');
+            mostrarToast('Subida cancelada. Por favor corrige el archivo.', 'info');
+        }
+
+        async function continuarSubidaProductos() {
+            if (!productosSystemPendientes) return;
+            
+            cerrarModal('modalAdvertenciasKardex');
+            
+            cargaMasivaEnProceso = true;
+            bloquearUI();
+            document.getElementById('loadingOverlay').classList.add('active');
+            document.getElementById('loadingText').textContent = 'Guardando Productos System...';
+            
+            try {
+                productosSystem = productosSystemPendientes;
+                productosSystemPendientes = null;
+                
+                await guardarProductosSystemSheets();
+                
+                document.getElementById('loadingOverlay').classList.remove('active');
+                cargaMasivaEnProceso = false;
+                desbloquearUI();
+                
+                mostrarToast(`${productosSystem.length} productos cargados`, 'success');
+                cargarFiltrosProductos();
+                renderizarProductosSystem();
+                verificarDiscrepancias();
+                detectarVariantesHuerfanas();
+                mostrarAlertasVariantesHuerfanas();
+            } catch (error) {
+                console.error(error);
+                mostrarToast('Error al guardar productos', 'danger');
+                document.getElementById('loadingOverlay').classList.remove('active');
+                cargaMasivaEnProceso = false;
+                desbloquearUI();
             }
         }
 
+        function verificarDiscrepancias() {
+            const sobrantes = [];
+            const faltantes = [];
+            const criticas = [];
+            
+            for (const prod of productosSystem) {
+                const stockFisico = inventario
+                    .filter(i => i.variante === prod.variante && !i.ubicacion.startsWith('191'))
+                    .reduce((sum, i) => sum + i.stockFisico, 0);
+                
+                const diferencia = stockFisico - prod.stkFin;
+                
+                if (Math.abs(diferencia) > 5) {
+                    const discrepancia = {
+                        variante: prod.variante,
+                        descripcion: prod.descripcion,
+                        stockFisico: stockFisico,
+                        stkFin: prod.stkFin,
+                        diferencia: diferencia
+                    };
+                    
+                    if (diferencia > 0) {
+                        sobrantes.push(discrepancia);
+                    } else {
+                        faltantes.push(discrepancia);
+                    }
+                    
+                    if (Math.abs(diferencia) > 20) {
+                        criticas.push(discrepancia);
+                    }
+                }
+            }
+
+            const alertDiv = document.getElementById('discrepanciasAlert');
+            let html = '';
+            
+            if (sobrantes.length > 0) {
+                html += `<div class="alert alert-info">
+                    <strong>📊 ${sobrantes.length} variantes con stock adicional</strong><br>
+                    Posible ingreso de mercancía nueva no reflejada en el sistema
+                </div>`;
+            }
+            
+            if (faltantes.length > 0) {
+                html += `<div class="alert alert-danger">
+                    <strong>⚠️ ${faltantes.length} variantes con faltante</strong><br>
+                    Requiere verificación inmediata del área de picking
+                </div>`;
+            }
+            
+            if (criticas.length > 0) {
+                html += `<div class="alert alert-warning">
+                    <strong>🔴 ${criticas.length} variantes con diferencia crítica (>20 unidades)</strong><br>
+                    Revisión urgente requerida
+                </div>`;
+            }
+            
+            if (html === '') {
+                html = '<div class="alert alert-success">✓ Todos los stocks coinciden (diferencias menores a 5 unidades)</div>';
+            }
+            
+            alertDiv.innerHTML = html;
+        }
+
+        // ============================================
+        // GESTIÓN DE ÓRDENES
+        // ============================================
         function distribuirProporcional(unidadesEncontradas, distribucionOriginal, totalSolicitado) {
             const distribucion = {};
             const restos = [];
@@ -2064,13 +3215,19 @@
                             pvp: prodSystem.pvp || 0,
                             descripcion: prodSystem.descripcion || '',
                             total: ub.cantidad,
+                            requiereBusquedaManual: ub.requiereBusquedaManual || false,
                             ...item.distribucion
                         });
                     }
                 }
             }
 
-            return Array.from(consolidado.values()).sort((a, b) => a.ubicacion.localeCompare(b.ubicacion));
+            return Array.from(consolidado.values()).sort((a, b) => {
+                // Primero las normales, luego las de búsqueda manual
+                if (a.requiereBusquedaManual && !b.requiereBusquedaManual) return 1;
+                if (!a.requiereBusquedaManual && b.requiereBusquedaManual) return -1;
+                return a.ubicacion.localeCompare(b.ubicacion);
+            });
         }
 
         async function procesarOrdenAutomatica(event) {
@@ -2084,6 +3241,7 @@
             }
 
             cargaMasivaEnProceso = true;
+            bloquearUI();
             
             try {
                 document.getElementById('loadingOverlay').classList.add('active');
@@ -2101,7 +3259,49 @@
                         const ordenId = 'ORD-' + Date.now();
                         const items = [];
                         const variantesSinStock = [];
+                        const variantesInvalidas = [];
                         let totalUnidades = 0;
+
+                        // VALIDACIÓN: Verificar si las variantes existen en productosSystem
+                        for (const row of jsonData) {
+                            const variante = String(row.Variante || row.variante || '').trim();
+                            if (!variante) continue;
+
+                            const existeEnSystem = productosSystem.find(p => p.variante === variante);
+                            if (!existeEnSystem) {
+                                const generico = extraerGenerico(variante);
+                                const alternativas = generico ? 
+                                    productosSystem.filter(p => p.variante.startsWith(generico)) : [];
+                                
+                                variantesInvalidas.push({
+                                    variante,
+                                    alternativas
+                                });
+                            }
+                        }
+
+                        if (variantesInvalidas.length > 0) {
+                            let mensaje = `❌ ERROR: ${variantesInvalidas.length} variantes NO existen en Productos System.\n\n`;
+                            mensaje += `No se puede crear la orden con variantes inexistentes.\n\n`;
+                            mensaje += `Variantes problemáticas:\n`;
+                            variantesInvalidas.slice(0, 10).forEach(v => {
+                                mensaje += `\n- ${v.variante}`;
+                                if (v.alternativas.length > 0) {
+                                    mensaje += ` (¿Quisiste decir ${v.alternativas[0].variante}?)`;
+                                }
+                            });
+                            
+                            if (variantesInvalidas.length > 10) {
+                                mensaje += `\n... y ${variantesInvalidas.length - 10} más`;
+                            }
+                            
+                            alert(mensaje);
+                            
+                            document.getElementById('loadingOverlay').classList.remove('active');
+                            cargaMasivaEnProceso = false;
+                            desbloquearUI();
+                            return;
+                        }
 
                         for (const row of jsonData) {
                             const variante = String(row.Variante || row.variante || '').trim();
@@ -2133,36 +3333,59 @@
                             const ubicacionesDisponibles = inventario
                                 .filter(inv => inv.variante === item.variante)
                                 .filter(inv => !inv.ubicacion.startsWith('191'))
+                                .filter(inv => !inv.ubicacion.startsWith('999-'))
                                 .filter(inv => (inv.stockFisico - inv.stockBloqueado) > 0)
                                 .sort((a, b) => (b.stockFisico - b.stockBloqueado) - (a.stockFisico - a.stockBloqueado));
 
                             let restante = item.cantidadSolicitada;
                             
                             if (ubicacionesDisponibles.length === 0) {
+                                // NUEVA FUNCIONALIDAD: Agregar a hoja de picking con marcador especial
                                 variantesSinStock.push({
                                     variante: item.variante,
                                     cantidadSolicitada: item.cantidadSolicitada,
                                     distribucion: item.distribucion
                                 });
-                            }
-
-                            for (const ubicacion of ubicacionesDisponibles) {
-                                if (restante <= 0) break;
-                                const disponible = ubicacion.stockFisico - ubicacion.stockBloqueado;
-                                const tomar = Math.min(disponible, restante);
                                 
-                                item.ubicaciones.push({ 
-                                    ubicacion: ubicacion.ubicacion, 
-                                    cantidad: tomar, 
-                                    encontrada: 0 
+                                // Agregar ubicación especial para búsqueda manual
+                                item.ubicaciones.push({
+                                    ubicacion: '⚠️ BUSCAR MANUALMENTE',
+                                    cantidad: item.cantidadSolicitada,
+                                    encontrada: 0,
+                                    requiereBusquedaManual: true
                                 });
-                                
-                                ubicacion.stockBloqueado += tomar;
-                                restante -= tomar;
-                            }
+                            } else {
+                                for (const ubicacion of ubicacionesDisponibles) {
+                                    if (restante <= 0) break;
+                                    const disponible = ubicacion.stockFisico - ubicacion.stockBloqueado;
+                                    const tomar = Math.min(disponible, restante);
+                                    
+                                    item.ubicaciones.push({ 
+                                        ubicacion: ubicacion.ubicacion, 
+                                        cantidad: tomar, 
+                                        encontrada: 0,
+                                        requiereBusquedaManual: false
+                                    });
+                                    
+                                    ubicacion.stockBloqueado += tomar;
+                                    restante -= tomar;
+                                }
 
-                            if (restante > 0 && ubicacionesDisponibles.length > 0) {
-                                mostrarToast(`Alerta: Faltan ${restante} unidades de ${item.variante}`, 'warning');
+                                if (restante > 0) {
+                                    // Stock parcial - agregar búsqueda manual por el faltante
+                                    variantesSinStock.push({
+                                        variante: item.variante,
+                                        cantidadSolicitada: restante,
+                                        distribucion: distribuirProporcional(restante, item.distribucion, item.cantidadSolicitada)
+                                    });
+                                    
+                                    item.ubicaciones.push({
+                                        ubicacion: '⚠️ BUSCAR MANUALMENTE',
+                                        cantidad: restante,
+                                        encontrada: 0,
+                                        requiereBusquedaManual: true
+                                    });
+                                }
                             }
                         }
 
@@ -2172,7 +3395,7 @@
                             id: ordenId,
                             nombre: nombreOrden,
                             fecha: new Date(),
-                            estado: 'Pendiente Picking',
+                            estado: variantesSinStock.length > 0 ? 'Parcial - Búsqueda Requerida' : 'Pendiente Picking',
                             totalUnidades,
                             totalAtendido: 0,
                             monto: 0,
@@ -2186,12 +3409,17 @@
                             observaciones: null,
                             prendasRechazadas: 0,
                             fechaCierre: null,
-                            variantesSinStock
+                            variantesSinStock,
+                            alertaEnviada: false
                         };
 
                         ordenes.push(orden);
                         await guardarInventarioSheets();
                         await guardarOrdenesSheets();
+
+                        document.getElementById('loadingOverlay').classList.remove('active');
+                        cargaMasivaEnProceso = false;
+                        desbloquearUI();
 
                         mostrarToast(`Orden "${nombreOrden}" creada exitosamente (Modo Automático)`, 'success');
                         document.getElementById('nombreOrdenAutomatica').value = '';
@@ -2208,15 +3436,16 @@
                     } catch (error) {
                         console.error(error);
                         mostrarToast('Error al procesar orden', 'danger');
-                    } finally {
                         document.getElementById('loadingOverlay').classList.remove('active');
                         cargaMasivaEnProceso = false;
+                        desbloquearUI();
                     }
                 };
                 reader.readAsArrayBuffer(file);
             } catch (error) {
                 document.getElementById('loadingOverlay').classList.remove('active');
                 cargaMasivaEnProceso = false;
+                desbloquearUI();
                 console.error(error);
                 mostrarToast('Error al procesar orden', 'danger');
             }
@@ -2233,6 +3462,7 @@
             }
 
             cargaMasivaEnProceso = true;
+            bloquearUI();
             
             try {
                 document.getElementById('loadingOverlay').classList.add('active');
@@ -2251,6 +3481,43 @@
                         const itemsMap = new Map();
                         let totalUnidades = 0;
                         const errores = [];
+                        const variantesInvalidas = [];
+
+                        // VALIDACIÓN: Verificar variantes
+                        for (const row of jsonData) {
+                            const variante = String(row.Variante || row.variante || '').trim();
+                            if (!variante) continue;
+
+                            const existeEnSystem = productosSystem.find(p => p.variante === variante);
+                            if (!existeEnSystem) {
+                                const generico = extraerGenerico(variante);
+                                const alternativas = generico ? 
+                                    productosSystem.filter(p => p.variante.startsWith(generico)) : [];
+                                
+                                variantesInvalidas.push({
+                                    variante,
+                                    alternativas
+                                });
+                            }
+                        }
+
+                        if (variantesInvalidas.length > 0) {
+                            let mensaje = `❌ ERROR: ${variantesInvalidas.length} variantes NO existen en Productos System.\n\n`;
+                            mensaje += `Variantes problemáticas:\n`;
+                            variantesInvalidas.slice(0, 10).forEach(v => {
+                                mensaje += `\n- ${v.variante}`;
+                                if (v.alternativas.length > 0) {
+                                    mensaje += ` (¿Quisiste decir ${v.alternativas[0].variante}?)`;
+                                }
+                            });
+                            
+                            alert(mensaje);
+                            
+                            document.getElementById('loadingOverlay').classList.remove('active');
+                            cargaMasivaEnProceso = false;
+                            desbloquearUI();
+                            return;
+                        }
 
                         for (const row of jsonData) {
                             const variante = String(row.Variante || row.variante || '').trim();
@@ -2309,7 +3576,8 @@
                             item.ubicaciones.push({
                                 ubicacion: ubicacion,
                                 cantidad: totalVariante,
-                                encontrada: 0
+                                encontrada: 0,
+                                requiereBusquedaManual: false
                             });
 
                             itemInv.stockBloqueado += totalVariante;
@@ -2326,6 +3594,7 @@
                             mostrarToast('No se pudo procesar ninguna fila válida', 'danger');
                             document.getElementById('loadingOverlay').classList.remove('active');
                             cargaMasivaEnProceso = false;
+                            desbloquearUI();
                             return;
                         }
 
@@ -2349,12 +3618,17 @@
                             observaciones: null,
                             prendasRechazadas: 0,
                             fechaCierre: null,
-                            variantesSinStock: []
+                            variantesSinStock: [],
+                            alertaEnviada: false
                         };
 
                         ordenes.push(orden);
                         await guardarInventarioSheets();
                         await guardarOrdenesSheets();
+
+                        document.getElementById('loadingOverlay').classList.remove('active');
+                        cargaMasivaEnProceso = false;
+                        desbloquearUI();
 
                         mostrarToast(`Orden "${nombreOrden}" creada exitosamente (Modo Manual)`, 'success');
                         document.getElementById('nombreOrdenManual').value = '';
@@ -2365,15 +3639,16 @@
                     } catch (error) {
                         console.error(error);
                         mostrarToast('Error al procesar orden', 'danger');
-                    } finally {
                         document.getElementById('loadingOverlay').classList.remove('active');
                         cargaMasivaEnProceso = false;
+                        desbloquearUI();
                     }
                 };
                 reader.readAsArrayBuffer(file);
             } catch (error) {
                 document.getElementById('loadingOverlay').classList.remove('active');
                 cargaMasivaEnProceso = false;
+                desbloquearUI();
                 console.error(error);
                 mostrarToast('Error al procesar orden', 'danger');
             }
@@ -2434,15 +3709,27 @@
         function renderizarOrdenes() {
             document.getElementById('ordenesTableBody').innerHTML = ordenes.map(orden => {
                 const colorEstado = orden.estado === 'Completada' ? 'green' :
+                                   orden.estado === 'Expirada' ? 'red' :
+                                   orden.estado === 'Parcial - Búsqueda Requerida' ? 'orange' :
                                    orden.estado === 'Pendiente Packing' ? 'yellow' :
-                                   orden.estado === 'En Picking' ? 'blue' : 'red';
+                                   orden.estado === 'En Picking' ? 'blue' : 'purple';
 
-                const fechaHora = orden.fecha.toLocaleString('es-PE', {
-                    day: '2-digit', month: '2-digit', year: 'numeric',
-                    hour: '2-digit', minute: '2-digit', hour12: true
-                });
+                const fechaHora = formatearFechaPeru(orden.fecha);
+                const dias = diasTranscurridos(orden.fecha);
+                const diasRestantes = DIAS_EXPIRACION_ORDEN - dias;
+                
+                let badgeDias = '';
+                if (orden.estado === 'Pendiente Picking' || orden.estado === 'En Picking' || orden.estado === 'Parcial - Búsqueda Requerida') {
+                    if (diasRestantes <= 0) {
+                        badgeDias = '<span class="badge badge-red" title="Expirada">❌</span>';
+                    } else if (diasRestantes <= DIAS_ALERTA_TEMPRANA) {
+                        badgeDias = `<span class="badge badge-yellow" title="${diasRestantes} días restantes">⚠️ ${diasRestantes}d</span>`;
+                    } else {
+                        badgeDias = `<span class="badge badge-blue">${dias}d</span>`;
+                    }
+                }
 
-                const puedeEditar = orden.estado === 'Pendiente Picking';
+                const puedeEditar = orden.estado === 'Pendiente Picking' || orden.estado === 'Parcial - Búsqueda Requerida';
                 const nombreOrden = orden.nombre && orden.nombre.trim() !== '' ? orden.nombre : 'Sin nombre';
                 const totalAtendido = orden.estado === 'Completada' ? orden.totalAtendido : '-';
                 const monto = orden.estado === 'Completada' ? `S/ ${orden.monto.toFixed(2)}` : '-';
@@ -2452,6 +3739,7 @@
                         <td><strong>${orden.id}</strong></td>
                         <td><strong style="color: var(--primary);">${nombreOrden}</strong></td>
                         <td>${fechaHora}</td>
+                        <td>${badgeDias} ${dias} días</td>
                         <td>${orden.totalUnidades}</td>
                         <td><strong style="color: var(--success);">${totalAtendido}</strong></td>
                         <td><strong style="color: var(--primary);">${monto}</strong></td>
@@ -2474,6 +3762,9 @@
                                     ${puedeEditar ? `
                                     <div class="dropdown-item" onclick="editarOrden('${orden.id}')">
                                         ✏️ Editar Orden
+                                    </div>
+                                    <div class="dropdown-item" onclick="extenderPlazoOrden('${orden.id}')">
+                                        ⏰ Extender Plazo
                                     </div>
                                     <div class="dropdown-item" onclick="eliminarOrden('${orden.id}')" style="color: var(--danger);">
                                         🗑️ Eliminar Orden
@@ -2530,6 +3821,9 @@
 
             for (const item of orden.items) {
                 for (const ub of item.ubicaciones) {
+                    // Saltar ubicaciones de búsqueda manual
+                    if (ub.requiereBusquedaManual) continue;
+                    
                     const itemInv = inventario.find(i => i.variante === item.variante && i.ubicacion === ub.ubicacion);
                     if (itemInv && itemInv.stockBloqueado > 0) {
                         itemInv.stockBloqueado = Math.max(0, itemInv.stockBloqueado - ub.cantidad);
@@ -2550,14 +3844,30 @@
         function descargarHojaPicking(ordenId) {
             const orden = ordenes.find(o => o.id === ordenId);
             if (!orden) return;
-            const ws = XLSX.utils.json_to_sheet(orden.hojaRutaPicking.map(row => ({
-                'Variante': row.variante,
-                'Ubicación': row.ubicacion,
-                'Descripción': row.descripcion,
-                'Marca': row.marca,
-                'Talla': row.talla,
-                'Cantidad': row.total
-            })));
+            
+            // Crear datos con formato especial para búsqueda manual
+            const datosExcel = orden.hojaRutaPicking.map(row => {
+                const datos = {
+                    'Ubicación': row.ubicacion,
+                    'Variante': row.variante,
+                    'Descripción': row.descripcion,
+                    'Marca': row.marca,
+                    'Talla': row.talla,
+                    'Cantidad': row.total
+                };
+                
+                if (row.requiereBusquedaManual) {
+                    datos['OBSERVACIÓN'] = '⚠️ SIN STOCK - BUSCAR EN OTRA UBICACIÓN';
+                } else {
+                    datos['OBSERVACIÓN'] = '';
+                }
+                
+                return datos;
+            });
+            
+            const ws = XLSX.utils.json_to_sheet(datosExcel);
+            
+            // Aplicar formato: filas de búsqueda manual con fondo naranja (solo visual en Excel avanzado)
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, 'Hoja Ruta Picking');
             XLSX.writeFile(wb, `${ordenId}-picking.xlsx`);
@@ -2595,6 +3905,9 @@
             mostrarToast('Hoja de packing descargada', 'success');
         }
 
+        // ============================================
+        // PICKING
+        // ============================================
         function debounceSearchPicking() {
             clearTimeout(searchPickingTimeout);
             searchPickingTimeout = setTimeout(() => {
@@ -2605,7 +3918,11 @@
         function renderizarPicking() {
             const busqueda = document.getElementById('buscarPicking')?.value.toLowerCase() || '';
             
-            let ordenesActivas = ordenes.filter(o => o.estado === 'Pendiente Picking' || o.estado === 'En Picking');
+            let ordenesActivas = ordenes.filter(o => 
+                o.estado === 'Pendiente Picking' || 
+                o.estado === 'En Picking' || 
+                o.estado === 'Parcial - Búsqueda Requerida'
+            );
             let ordenesHistorial = ordenes.filter(o => o.estado === 'Pendiente Packing' || o.estado === 'Completada');
             
             if (busqueda) {
@@ -2629,10 +3946,21 @@
                 html += '<p style="color: var(--text-secondary); margin-bottom: 2rem;">No hay órdenes pendientes de picking</p>';
             } else {
                 html += ordenesActivas.map(orden => {
-                    const fechaHora = orden.fecha.toLocaleString('es-PE', {
-                        day: '2-digit', month: '2-digit', year: 'numeric',
-                        hour: '2-digit', minute: '2-digit', hour12: true
-                    });
+                    const fechaHora = formatearFechaPeru(orden.fecha);
+                    const dias = diasTranscurridos(orden.fecha);
+                    const diasRestantes = DIAS_EXPIRACION_ORDEN - dias;
+                    
+                    let badgeDias = '';
+                    if (diasRestantes <= 0) {
+                        badgeDias = '<span class="badge badge-red">❌ Expirada</span>';
+                    } else if (diasRestantes <= DIAS_ALERTA_TEMPRANA) {
+                        badgeDias = `<span class="badge badge-yellow">⚠️ ${diasRestantes} días restantes</span>`;
+                    }
+                    
+                    const badgeEstado = orden.estado === 'Parcial - Búsqueda Requerida' ? 
+                        '<span class="badge badge-orange">Parcial - Búsqueda Requerida</span>' :
+                        '<span class="badge badge-blue">' + orden.estado + '</span>';
+                    
                     return `
                         <div class="orden-card">
                             <div class="orden-header">
@@ -2640,11 +3968,14 @@
                                     <h4>${orden.nombre || orden.id}</h4>
                                     <p style="font-size: 0.875rem; color: var(--text-secondary); margin-top: 0.25rem;">ID: ${orden.id}</p>
                                 </div>
-                                <span class="badge badge-blue">${orden.estado}</span>
+                                <div style="display: flex; gap: 0.5rem;">
+                                    ${badgeEstado}
+                                    ${badgeDias}
+                                </div>
                             </div>
                             <p>Total Unidades: <strong>${orden.totalUnidades}</strong></p>
-                            ${orden.variantesSinStock && orden.variantesSinStock.length > 0 ? `<p style="color: var(--warning);">⚠️ ${orden.variantesSinStock.length} variantes sin stock</p>` : ''}
-                            <p>Fecha y Hora: ${fechaHora}</p>
+                            ${orden.variantesSinStock && orden.variantesSinStock.length > 0 ? `<p style="color: var(--warning);">⚠️ ${orden.variantesSinStock.length} variantes sin stock (incluidas en hoja)</p>` : ''}
+                            <p>Fecha y Hora: ${fechaHora} (${dias} días)</p>
                             <div style="margin-top: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
                                 <button class="btn btn-primary" onclick="descargarHojaPicking('${orden.id}')">📥 Descargar Hoja Ruta</button>
                                 ${orden.variantesSinStock && orden.variantesSinStock.length > 0 ? `<button class="btn btn-warning" onclick="verReporteFaltantes('${orden.id}')">⚠️ Ver Sin Stock</button>` : ''}
@@ -2660,10 +3991,7 @@
                 html += '<p style="color: var(--text-secondary);">No hay historial disponible</p>';
             } else {
                 html += ordenesHistorial.map(orden => {
-                    const fechaHora = orden.fecha.toLocaleString('es-PE', {
-                        day: '2-digit', month: '2-digit', year: 'numeric',
-                        hour: '2-digit', minute: '2-digit', hour12: true
-                    });
+                    const fechaHora = formatearFechaPeru(orden.fecha);
                     
                     const estadoBadge = orden.estado === 'Completada' ? 'green' : 'yellow';
                     const porcentajeEncontrado = orden.totalUnidades > 0 
@@ -2758,15 +4086,29 @@
                         
                         let estado = '';
                         let colorEstado = '';
-                        if (encontrado === 0) {
-                            estado = '❌ No encontrado';
-                            colorEstado = 'var(--danger)';
-                        } else if (faltante > 0) {
-                            estado = `⚠️ Faltante ${faltante}`;
-                            colorEstado = 'var(--warning)';
+                        
+                        if (ub.requiereBusquedaManual) {
+                            if (encontrado === 0) {
+                                estado = '🔍 No encontrado (búsqueda manual)';
+                                colorEstado = 'var(--danger)';
+                            } else if (faltante > 0) {
+                                estado = `🔍 Encontrado parcial (${faltante} faltan)`;
+                                colorEstado = 'var(--warning)';
+                            } else {
+                                estado = '✓ Encontrado (búsqueda manual)';
+                                colorEstado = 'var(--success)';
+                            }
                         } else {
-                            estado = '✓ Completo';
-                            colorEstado = 'var(--success)';
+                            if (encontrado === 0) {
+                                estado = '❌ No encontrado';
+                                colorEstado = 'var(--danger)';
+                            } else if (faltante > 0) {
+                                estado = `⚠️ Faltante ${faltante}`;
+                                colorEstado = 'var(--warning)';
+                            } else {
+                                estado = '✓ Completo';
+                                colorEstado = 'var(--success)';
+                            }
                         }
 
                         const prodSystem = productosSystem.find(p => p.variante === item.variante) || {};
@@ -2779,7 +4121,8 @@
                             solicitado: ub.cantidad,
                             encontrado: encontrado,
                             estado: estado,
-                            colorEstado: colorEstado
+                            colorEstado: colorEstado,
+                            requiereBusquedaManual: ub.requiereBusquedaManual || false
                         });
                     }
                 }
@@ -2804,7 +4147,7 @@
             }
 
             document.getElementById('detallesPickingTableBody').innerHTML = detallesFiltrados.map(det => `
-                <tr style="background: ${det.encontrado < det.solicitado ? 'rgba(239, 68, 68, 0.05)' : 'transparent'};">
+                <tr style="background: ${det.encontrado < det.solicitado ? 'rgba(239, 68, 68, 0.05)' : 'transparent'};" class="${det.requiereBusquedaManual ? 'busqueda-manual-row' : ''}">
                     <td><strong>${det.variante}</strong></td>
                     <td>${det.ubicacion}</td>
                     <td>${det.descripcion}</td>
@@ -2846,10 +4189,15 @@
 
                     for (const row of jsonData) {
                         const variante = String(row.Variante || row.variante || '').trim();
-                        const ubicacion = String(row.Ubicacion || row.ubicacion || row['Ubicación'] || '').trim().toUpperCase();
+                        let ubicacion = String(row.Ubicacion || row.ubicacion || row['Ubicación'] || '').trim().toUpperCase();
                         const encontrada = parseInt(row['Cantidad Encontrada'] || row.Encontrada || 0);
 
                         if (!variante || !ubicacion) continue;
+
+                        // Permitir ubicación de búsqueda manual
+                        if (ubicacion === '⚠️ BUSCAR MANUALMENTE') {
+                            ubicacion = '⚠️ BUSCAR MANUALMENTE';
+                        }
 
                         const item = orden.items.find(i => i.variante === variante);
                         if (!item) {
@@ -2872,10 +4220,16 @@
                         cantidadesEncontradas[key] = encontrada;
                         totalEncontradas += encontrada;
 
-                        const itemInv = inventario.find(i => i.variante === variante && i.ubicacion === ubicacion);
-                        if (itemInv) {
-                            itemInv.stockFisico = Math.max(0, itemInv.stockFisico - encontrada);
-                            itemInv.stockBloqueado = Math.max(0, itemInv.stockBloqueado - ubItem.cantidad);
+                        // Solo reducir stock si NO es búsqueda manual
+                        if (!ubItem.requiereBusquedaManual) {
+                            const itemInv = inventario.find(i => i.variante === variante && i.ubicacion === ubicacion);
+                            if (itemInv) {
+                                itemInv.stockFisico = Math.max(0, itemInv.stockFisico - encontrada);
+                                itemInv.stockBloqueado = Math.max(0, itemInv.stockBloqueado - ubItem.cantidad);
+                            }
+                        } else {
+                            // Para búsqueda manual, solo liberar el bloqueado (que era 0 de todos modos)
+                            // No hay stock físico que reducir porque no estaba en inventario
                         }
                     }
 
@@ -2951,15 +4305,15 @@
             orden.hojaPacking = hojaPacking;
         }
 
+        // ============================================
+        // PACKING
+        // ============================================
         function renderizarPacking() {
             const ordenesPacking = ordenes.filter(o => o.estado === 'Pendiente Packing');
             document.getElementById('packingOrdenesContainer').innerHTML = ordenesPacking.length === 0 ? 
                 '<p style="color: var(--text-secondary);">No hay órdenes pendientes de packing</p>' :
                 ordenesPacking.map(orden => {
-                    const fechaHora = orden.fecha.toLocaleString('es-PE', {
-                        day: '2-digit', month: '2-digit', year: 'numeric',
-                        hour: '2-digit', minute: '2-digit', hour12: true
-                    });
+                    const fechaHora = formatearFechaPeru(orden.fecha);
                     return `
                         <div class="orden-card">
                             <div class="orden-header">
@@ -3048,24 +4402,41 @@
             orden.observaciones.push({ variante, ubicacion, cantidad, motivo, comentario });
             orden.prendasRechazadas += cantidad;
 
+            // NUEVA FUNCIONALIDAD: Mover a ubicación temporal inmediatamente
+            const ubicacionTemporal = motivo === 'mal_estado' ? '191' : '999-PENDIENTE';
+            
+            const itemInv = inventario.find(i => i.variante === variante && i.ubicacion === ubicacionTemporal);
+            if (itemInv) {
+                itemInv.stockFisico += cantidad;
+            } else {
+                inventario.push({
+                    variante: variante,
+                    ubicacion: ubicacionTemporal,
+                    stockFisico: cantidad,
+                    stockBloqueado: 0
+                });
+            }
+
             const reclasId = 'RECLA-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5);
             itemsReclasificacion.push({
                 id: reclasId,
                 ordenId,
                 varianteOriginal: variante,
-                ubicacionOriginal: ubicacion,
+                ubicacionOriginal: ubicacionTemporal, // Ya está en ubicación temporal
                 cantidad,
                 motivo,
                 comentario,
                 estado: 'Pendiente',
-                ubicacionDestino: motivo === 'mal_estado' ? '191' : null,
+                ubicacionDestino: null,
                 nuevaVariante: null
             });
 
             cerrarModal('modalObservacionesPacking');
+            await guardarInventarioSheets(); // Guardar el movimiento a ubicación temporal
             await guardarOrdenesSheets();
             await guardarReclasificacionSheets();
-            mostrarToast('Observación registrada y distribución ajustada', 'success');
+            mostrarToast('Observación registrada, stock movido a ubicación temporal y distribución ajustada', 'success');
+            renderizarInventario();
             renderizarPacking();
             renderizarReclasificacion();
 
@@ -3095,9 +4466,26 @@
         }
 
         async function cerrarOrden(ordenId) {
-            if (!confirm('¿Cerrar esta orden? Esto finalizará el proceso y calculará el monto final.')) return;
             const orden = ordenes.find(o => o.id === ordenId);
             if (!orden) return;
+            
+            // Validar que haya kardex antes de cerrar
+            let sinKardex = false;
+            for (const row of orden.hojaPacking) {
+                const kardex = row.kardex || 0;
+                if (kardex === 0) {
+                    sinKardex = true;
+                    break;
+                }
+            }
+            
+            if (sinKardex) {
+                if (!confirm('⚠️ ADVERTENCIA: Esta orden contiene productos sin Kardex.\n\nEl monto será S/ 0.00.\n\n¿Deseas cerrar la orden de todos modos?')) {
+                    return;
+                }
+            }
+            
+            if (!confirm('¿Cerrar esta orden? Esto finalizará el proceso y calculará el monto final.')) return;
 
             let totalAtendido = 0;
             let monto = 0;
@@ -3114,6 +4502,13 @@
                 monto += cantidadFilaAtendida * kardex;
             }
 
+            // Alerta final si monto es 0
+            if (monto === 0 && totalAtendido > 0) {
+                if (!confirm(`⚠️ ALERTA FINAL: Monto calculado es S/ 0.00 con ${totalAtendido} unidades atendidas.\n\nEsto indica que los productos no tienen Kardex asignado.\n\n¿Confirmas el cierre de la orden?`)) {
+                    return;
+                }
+            }
+
             orden.totalAtendido = totalAtendido;
             orden.monto = monto;
             orden.estado = 'Completada';
@@ -3128,6 +4523,9 @@
             actualizarDashboard();
         }
 
+        // ============================================
+        // RECLASIFICACIÓN
+        // ============================================
         function debounceSearchReclasificacion() {
             clearTimeout(searchReclasificacionTimeout);
             searchReclasificacionTimeout = setTimeout(() => {
@@ -3226,24 +4624,48 @@
             const item = itemsReclasificacion.find(i => i.id === itemId);
             if (!item) return;
 
-            item.nuevaVariante = item.motivo === 'mal_estado' ? item.varianteOriginal : (nuevaVariante || item.varianteOriginal);
-            item.ubicacionDestino = nuevaUbicacion;
-            item.estado = 'Completada';
+            // El stock ya está en ubicación temporal (999-PENDIENTE o 191)
+            const ubicacionTemporal = item.ubicacionOriginal;
+            
+            // Determinar nueva variante
+            const varianteFinal = item.motivo === 'mal_estado' ? item.varianteOriginal : (nuevaVariante || item.varianteOriginal);
+            
+            // Remover de ubicación temporal
+            const indexTemp = inventario.findIndex(i => 
+                i.variante === item.varianteOriginal && i.ubicacion === ubicacionTemporal
+            );
+            
+            if (indexTemp !== -1) {
+                const cantidadTemp = inventario[indexTemp].stockFisico;
+                
+                if (cantidadTemp >= item.cantidad) {
+                    inventario[indexTemp].stockFisico -= item.cantidad;
+                    
+                    if (inventario[indexTemp].stockFisico === 0) {
+                        inventario.splice(indexTemp, 1);
+                    }
+                }
+            }
 
+            // Agregar a ubicación destino
             const existente = inventario.find(inv => 
-                inv.variante === item.nuevaVariante && inv.ubicacion === nuevaUbicacion
+                inv.variante === varianteFinal && inv.ubicacion === nuevaUbicacion
             );
 
             if (existente) {
                 existente.stockFisico += item.cantidad;
             } else {
                 inventario.push({
-                    variante: item.nuevaVariante,
+                    variante: varianteFinal,
                     ubicacion: nuevaUbicacion,
                     stockFisico: item.cantidad,
                     stockBloqueado: 0
                 });
             }
+
+            item.nuevaVariante = varianteFinal;
+            item.ubicacionDestino = nuevaUbicacion;
+            item.estado = 'Completada';
 
             cerrarModal('modalReclasificar');
             await guardarInventarioSheets();
@@ -3253,11 +4675,16 @@
             renderizarInventario();
             renderizarReclasificacion();
             actualizarDashboard();
+            detectarVariantesHuerfanas();
+            mostrarAlertasVariantesHuerfanas();
 
             document.getElementById('nuevaVariante').value = '';
             document.getElementById('nuevaUbicacion').value = '';
         }
 
+        // ============================================
+        // INICIALIZACIÓN
+        // ============================================
         window.gapiLoaded = gapiLoaded;
         window.gisLoaded = gisLoaded;
         window.handleAuthClick = handleAuthClick;
